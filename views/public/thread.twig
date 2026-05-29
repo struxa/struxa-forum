@@ -11,10 +11,11 @@
 {% set _op_author      = _op and _op.author_user_id ? forum_users_by_id[_op.author_user_id]|default(null) : null %}
 {% set _op_author_name = _op_author ? _op_author.display_name : 'a community member' %}
 {% set _seo_title      = thread.title|e %}
-{% set _seo_desc       = _op_excerpt ?: ('Discussion in ' ~ forum.name ~ ' on FL350.') %}
-{% set _seo_image      = _op_author and _op_author.avatar ? _op_author.avatar : (site_url ~ theme_asset('images/fl350-logo.png')) %}
+{% set _site = settings.site_name|default('Community') %}
+{% set _seo_desc       = _op_excerpt ?: ('Discussion in ' ~ forum.name ~ ' on ' ~ _site ~ '.') %}
+{% set _seo_image      = _op_author and _op_author.avatar ? _op_author.avatar : (site_url ~ '/favicon.svg') %}
 
-{% block title %}{{ thread.title|e }} — {{ forum.name|e }} — {{ settings.site_name|default('FL350') }}{% endblock %}
+{% block title %}{{ thread.title|e }} — {{ forum.name|e }} — {{ _site|e }}{% endblock %}
 {% block meta_description %}{{ _seo_desc|e }}{% endblock %}
 {% block canonical_href %}{{ _thread_url_p|e('html_attr') }}{% endblock %}
 {% block og_type %}article{% endblock %}
@@ -65,8 +66,8 @@
         } : { '@type': 'Person', 'name': _op_author_name },
         'publisher': {
           '@type': 'Organization',
-          'name':  settings.site_name|default('FL350'),
-          'logo':  { '@type': 'ImageObject', 'url': site_url ~ theme_asset('images/fl350-logo.png') }
+          'name':  _site,
+          'logo':  { '@type': 'ImageObject', 'url': site_url ~ '/favicon.svg' }
         },
         'interactionStatistic': [
           { '@type': 'InteractionCounter', 'interactionType': 'https://schema.org/ViewAction',     'userInteractionCount': thread.views_count|default(0) },
@@ -352,20 +353,6 @@
 
     </div>{# /.forum-layout #}
 
-    {# Full-width credit cards strip beneath the thread + sidebar grid.
-       Mirrors the /forum index treatment so the offer is consistent
-       across forum surfaces and lives outside the layout grid so it
-       can stretch the full content width. #}
-    <div class="forum-shell forum-shell--wide">
-      {% include '@plugin_forum_plugin/widgets/credit-cards-strip.twig' with {
-        forum_cards: forum_sidebar.cards|default([])
-      } only %}
-    </div>
-
-    {# Delete confirmation modal — shown by forum.js when "Delete" is
-       clicked. We render one shared modal and rewrite its hidden form
-       action + body copy in JS to target the specific post the user
-       clicked. Keeps DOM small even on long threads. #}
     {% if forum_logged_in %}
       <div class="forum-modal forum-modal--danger" id="forum-delete-modal" hidden role="dialog" aria-modal="true" aria-labelledby="forum-delete-title">
         <div class="forum-modal-backdrop" data-forum-modal-close></div>

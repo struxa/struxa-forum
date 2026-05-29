@@ -2,9 +2,10 @@
 
 {% set _profile_url = site_url ~ '/forum/user/' ~ forum_user.id %}
 {% set _seo_title   = forum_user.display_name ~ ' — Forum profile' %}
-{% set _seo_desc    = forum_user.display_name ~ ' on FL350 — ' ~ (forum_user.posts|default(0)|number_format) ~ ' posts, member since ' ~ (forum_user.joined_at ? forum_user.joined_at|date('F Y') : 'recently') ~ '.' %}
+{% set _site = settings.site_name|default('Community') %}
+{% set _seo_desc    = forum_user.display_name ~ ' on ' ~ _site ~ ' — ' ~ (forum_user.posts|default(0)|number_format) ~ ' posts, member since ' ~ (forum_user.joined_at ? forum_user.joined_at|date('F Y') : 'recently') ~ '.' %}
 
-{% block title %}{{ _seo_title|e }} — {{ settings.site_name|default('FL350') }}{% endblock %}
+{% block title %}{{ _seo_title|e }} — {{ _site|e }}{% endblock %}
 {% block meta_description %}{{ _seo_desc|e }}{% endblock %}
 {% block canonical_href %}{{ _profile_url|e('html_attr') }}{% endblock %}
 {% block og_type %}profile{% endblock %}
@@ -19,7 +20,7 @@
     canonical:      _profile_url,
     og_title:       _seo_title,
     og_description: _seo_desc,
-    og_image:       forum_user.avatar|default(null) ?: (site_url ~ theme_asset('images/fl350-logo.png')),
+    og_image:       forum_user.avatar|default(null) ?: (site_url ~ '/favicon.svg'),
     jsonld: [
       {
         '@context': 'https://schema.org',

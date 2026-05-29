@@ -3,9 +3,10 @@
 {% set _tag_url   = site_url ~ '/forum/tag/' ~ forum_tag.slug %}
 {% set _tag_url_p = forum_page > 1 ? _tag_url ~ '?page=' ~ forum_page : _tag_url %}
 {% set _seo_title = 'Tagged "' ~ forum_tag.name ~ '"' %}
-{% set _seo_desc  = meta_description|default('Forum threads tagged ' ~ forum_tag.name ~ ' on FL350.') %}
+{% set _site = settings.site_name|default('Community') %}
+{% set _seo_desc  = meta_description|default('Forum threads tagged ' ~ forum_tag.name ~ '.') %}
 
-{% block title %}{{ _seo_title|e }} — Forum — {{ settings.site_name|default('FL350') }}{% endblock %}
+{% block title %}{{ _seo_title|e }} — Forum — {{ _site|e }}{% endblock %}
 {% block meta_description %}{{ _seo_desc|e }}{% endblock %}
 {% block canonical_href %}{{ _tag_url_p|e('html_attr') }}{% endblock %}
 {% block og_title %}{{ _seo_title|e }}{% endblock %}

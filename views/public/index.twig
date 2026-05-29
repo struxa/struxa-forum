@@ -1,21 +1,22 @@
 {% extends 'layouts/base.twig' %}
 
 {% set _index_url = site_url ~ '/forum' %}
-{% set _seo_desc  = meta_description|default('Community discussions for Avios members — trip reports, redemption tips and travel news.') %}
+{% set _site = settings.site_name|default('Community') %}
+{% set _seo_desc  = meta_description|default('Community discussions — browse forums, start threads and join the conversation.') %}
 
-{% block title %}{{ page_title|default('Forum') }} — {{ settings.site_name|default('FL350') }}{% endblock %}
+{% block title %}{{ page_title|default('Forum') }} — {{ _site|e }}{% endblock %}
 {% block meta_description %}{{ _seo_desc }}{% endblock %}
 {% block canonical_href %}{{ _index_url|e('html_attr') }}{% endblock %}
-{% block og_title %}{{ settings.site_name|default('FL350') }} Forum{% endblock %}
+{% block og_title %}{{ _site|e }} Forum{% endblock %}
 {% block og_description %}{{ _seo_desc }}{% endblock %}
-{% block twitter_title %}{{ settings.site_name|default('FL350') }} Forum{% endblock %}
+{% block twitter_title %}{{ _site|e }} Forum{% endblock %}
 {% block twitter_description %}{{ _seo_desc }}{% endblock %}
 
 {% block meta_extra %}
   {{ parent() }}
   {% include '@plugin_forum_plugin/public/_seo_head.twig' with {
     canonical:      _index_url,
-    og_title:       settings.site_name|default('FL350') ~ ' Forum',
+    og_title:       _site ~ ' Forum',
     og_description: _seo_desc,
     jsonld: [
       {
@@ -29,13 +30,12 @@
       {
         '@context':    'https://schema.org',
         '@type':       'WebSite',
-        'name':        settings.site_name|default('FL350') ~ ' Forum',
+        'name':        _site ~ ' Forum',
         'url':         _index_url,
         'description': _seo_desc,
         'publisher': {
           '@type': 'Organization',
-          'name':  settings.site_name|default('FL350'),
-          'logo':  { '@type': 'ImageObject', 'url': site_url ~ theme_asset('images/fl350-logo.png') }
+          'name':  _site
         },
         'potentialAction': {
           '@type':       'SearchAction',
@@ -61,8 +61,8 @@
           <span class="forum-eyebrow-dot" aria-hidden="true"></span>
           <span>Community · live now</span>
         </p>
-        <h1 class="forum-hero-title">The Avios <span class="forum-hero-title-accent">Forum</span></h1>
-        <p class="forum-hero-sub">Trip reports, redemption sweet spots and proper Avios chat — from people who actually fly. Free to join, sign in to post.</p>
+        <h1 class="forum-hero-title">{{ _site|e }} <span class="forum-hero-title-accent">Forum</span></h1>
+        <p class="forum-hero-sub">Browse discussions, ask questions, and share with other members. Free to read — sign in to post.</p>
 
         <form method="get" action="/forum/search" class="forum-hero-search forum-hero-search--wide" role="search">
           <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
@@ -156,15 +156,6 @@
 
       {% include '@plugin_forum_plugin/widgets/sidebar.twig' %}
 
-    </div>
-
-    {# Full-width credit cards strip, sitting beneath the forum list +
-       sidebar. The data is the same `forum_sidebar.cards` payload — we
-       just promote it to a top-level `forum_cards` for the partial. #}
-    <div class="forum-shell forum-shell--wide">
-      {% include '@plugin_forum_plugin/widgets/credit-cards-strip.twig' with {
-        forum_cards: forum_sidebar.cards|default([])
-      } only %}
     </div>
   </main>
 {% endblock %}

@@ -2,8 +2,8 @@
 
 {% set _search_url = site_url ~ '/forum/search' %}
 
-{% block title %}{{ page_title|default('Search the forum') }} — {{ settings.site_name|default('FL350') }}{% endblock %}
-{% block meta_description %}{{ meta_description|default('Search FL350 forum threads and posts.') }}{% endblock %}
+{% block title %}{{ page_title|default('Search the forum') }} — {{ settings.site_name|default('Community')|e }}{% endblock %}
+{% block meta_description %}{{ meta_description|default('Search forum threads and posts.') }}{% endblock %}
 {% block canonical_href %}{{ _search_url|e('html_attr') }}{% endblock %}
 
 {% block meta_extra %}
@@ -16,7 +16,7 @@
     canonical:      _search_url,
     robots:         'noindex,follow',
     og_title:       'Search the forum',
-    og_description: 'Find threads, posts and members across the FL350 forum.'
+    og_description: 'Find threads, posts and members across the forum.'
   } only %}
 {% endblock %}
 

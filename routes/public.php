@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use App\Flash;
 use App\Plugin\PluginBootContext;
-use AviosCreditCardsPlugin\CardRepository as CreditCardRepository;
 use ForumPlugin\MarkdownRenderer;
 use ForumPlugin\ProfileService;
 use ForumPlugin\RankService;
@@ -33,21 +32,11 @@ return function (App $app, PluginBootContext $ctx): void {
     $auth = $ctx->auth();
 
     /**
-     * Build the optional sidebar payload (featured credit cards + top
-     * contributors). The credit-cards plugin may or may not be active;
-     * we soft-fail and return an empty list rather than throwing.
+     * Sidebar payload: top contributors, popular tags, and optional "me" panel.
      *
-     * @return array{cards:list<array<string,mixed>>, top_posters:list<array<string,mixed>>}
+     * @return array{top_posters:list<array<string,mixed>>, tags:list<array<string,mixed>>, me:?array<string,mixed>}
      */
     $sidebarData = static function (PDO $pdo, StatsService $stats, UserDirectory $users, TagRepository $tags, ?int $currentUserId = null): array {
-        $cards = [];
-        if (class_exists(CreditCardRepository::class)) {
-            try {
-                $cards = (new CreditCardRepository($pdo))->topN(3);
-            } catch (\Throwable) {
-                $cards = [];
-            }
-        }
         $top = $stats->topPosters(5);
         $users->preload(array_column($top, 'user_id'));
         $topWithUser = [];
@@ -59,10 +48,6 @@ return function (App $app, PluginBootContext $ctx): void {
             $topWithUser[] = ['posts' => (int) $row['posts'], 'user' => $u];
         }
 
-        // "Me" panel — only built when a CMS user is signed in. We
-        // reuse UserDirectory (avatar + rank + posts) and add a couple
-        // of cheap counters via ProfileService::stats() so the sidebar
-        // can show topics started + likes received alongside posts.
         $me = null;
         if ($currentUserId !== null) {
             $u = $users->find($currentUserId);
@@ -70,15 +55,14 @@ return function (App $app, PluginBootContext $ctx): void {
                 $profileStats = (new ProfileService($pdo, $users))->stats($currentUserId);
                 $next = RankService::nextRankFor((int) ($u['posts'] ?? 0));
                 $me = [
-                    'user'     => $u,
-                    'stats'    => $profileStats,
+                    'user'      => $u,
+                    'stats'     => $profileStats,
                     'next_rank' => $next,
                 ];
             }
         }
 
         return [
-            'cards'       => $cards,
             'top_posters' => $topWithUser,
             'tags'        => $tags->all(24),
             'me'          => $me,
@@ -437,7 +421,7 @@ return function (App $app, PluginBootContext $ctx): void {
 
         return $twig->render($response, '@plugin_forum_plugin/public/index.twig', $ctx->viewData([
             'page_title'         => 'Forum',
-            'meta_description'   => 'Community discussions, trip reports and Avios chat.',
+            'meta_description'   => 'Community discussions — browse forums, start threads and join the conversation.',
             'forum_grouped'      => $grouped,
             'forum_stats'        => $stats,
             'forum_logged_in'    => $cmsUserId !== null,
@@ -497,7 +481,7 @@ return function (App $app, PluginBootContext $ctx): void {
 
         return $twig->render($response, '@plugin_forum_plugin/public/search.twig', $ctx->viewData([
             'page_title'        => $q !== '' ? ('Search · ' . $q) : 'Search the forum',
-            'meta_description'  => 'Search FL350 forum threads and posts.',
+            'meta_description'  => 'Search forum threads and posts.',
             'forum_query'       => $q,
             'forum_query_forum' => $forumId,
             'forum_forums'      => $d['forums']->allForAdmin(),

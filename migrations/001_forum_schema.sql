@@ -153,7 +153,7 @@ CREATE TABLE IF NOT EXISTS forum_user_activity (
 
 -- -----------------------------------------------------------------------
 -- Settings: small key/value store for plugin config (per-page sizes,
--- edit window, etc.). Mirrors the avios-destination-review pattern.
+-- edit window, etc.). Key/value store scoped to this plugin.
 -- -----------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS forum_settings (
     setting_key   VARCHAR(80) NOT NULL PRIMARY KEY,

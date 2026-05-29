@@ -2,7 +2,7 @@
 
 {% set _new_url = site_url ~ '/forum/' ~ forum.slug ~ '/new' %}
 
-{% block title %}New thread in {{ forum.name|e }} — {{ settings.site_name|default('FL350') }}{% endblock %}
+{% block title %}New thread in {{ forum.name|e }} — {{ settings.site_name|default('Community')|e }}{% endblock %}
 {% block meta_description %}Start a new conversation in {{ forum.name|e }}.{% endblock %}
 {% block canonical_href %}{{ _new_url|e('html_attr') }}{% endblock %}
 
@@ -48,7 +48,7 @@
         <div class="forum-field">
           <label for="nt-title" class="forum-reply-label">Thread title</label>
           <input id="nt-title" name="title" type="text" required minlength="4" maxlength="255"
-                 value="{{ forum_form.title|default('')|e('html_attr') }}" placeholder="Concise, descriptive title — e.g. “Used 47k Avios LHR–JFK in Club World, AMA”" />
+                 value="{{ forum_form.title|default('')|e('html_attr') }}" placeholder="Concise, descriptive title for your thread" />
         </div>
 
         <div class="forum-field">

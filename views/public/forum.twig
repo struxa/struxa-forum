@@ -4,7 +4,7 @@
 {% set _forum_url_p = forum_page > 1 ? _forum_url ~ '?page=' ~ forum_page : _forum_url %}
 {% set _seo_desc    = (forum.description ?? 'Discussion in ' ~ forum.name)|e %}
 
-{% block title %}{{ forum.name|e }} — Forum — {{ settings.site_name|default('FL350') }}{% endblock %}
+{% block title %}{{ forum.name|e }} — Forum — {{ settings.site_name|default('Community')|e }}{% endblock %}
 {% block meta_description %}{{ _seo_desc }}{% endblock %}
 {% block canonical_href %}{{ _forum_url_p|e('html_attr') }}{% endblock %}
 {% block og_title %}{{ forum.name|e }} — Forum{% endblock %}
@@ -40,7 +40,7 @@
         'name':     forum.name,
         'description': _seo_desc,
         'url':      _forum_url_p,
-        'isPartOf': { '@type': 'WebSite', 'name': settings.site_name|default('FL350'), 'url': site_url },
+        'isPartOf': { '@type': 'WebSite', 'name': settings.site_name|default('Community'), 'url': site_url },
         'mainEntity': {
           '@type': 'ItemList',
           'itemListOrder': 'https://schema.org/ItemListOrderDescending',

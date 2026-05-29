@@ -1,19 +1,5 @@
-{# Sidebar shown on /forum index and forum view pages.
-   Renders (top → bottom):
-     - "You" card when logged in (avatar, username, rank, stats, progress)
-     - "Join the conversation" CTA when logged out
-     - Top contributors (from forum_user_activity)
-     - Popular tags (CMS taxonomy)
-
-   The "Top Avios cards" block intentionally lives OUTSIDE this partial —
-   the /forum index now renders it as a full-width horizontal strip
-   beneath the forum list (see widgets/credit-cards-strip.twig).
-
-   Required view data:
-     forum_sidebar   : { cards: [...] (unused here), top_posters: [{user, posts}], tags: [...], me: {...}|null }
-     forum_logged_in : bool (optional)
-#}
-{% set _sb = forum_sidebar|default({cards: [], top_posters: [], tags: [], me: null}) %}
+{# Forum sidebar: logged-in member card, top contributors, popular tags. #}
+{% set _sb = forum_sidebar|default({top_posters: [], tags: [], me: null}) %}
 
 <aside class="forum-side" aria-label="Sidebar">
 
