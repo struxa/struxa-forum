@@ -1,7 +1,7 @@
 {
   "name": "Forum",
   "slug": "forum-plugin",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "author": "Studio CMS",
   "description": "Full community forum for Struxa CMS: categories, forums, threads and replies with Markdown, likes, subscriptions, tags, search and member profiles. Includes sticky and locked threads, online-now stats, rate limiting, reporting, and an admin moderation panel. Threads sync to a CMS content type for SEO metadata, slugs and featured images. Ships with a homepage latest-discussions widget.",
   "requires_cms_version": "1.0.0",

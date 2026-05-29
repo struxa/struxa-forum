@@ -79,7 +79,7 @@ The plugin creates these tables (all prefixed `forum_`):
 
 Migration `002_forum_content_type.sql` also registers a **`forum-thread`** CMS content type linked to each thread row.
 
-Migration `003_forum_seed.sql` inserts starter categories and forums (Community, Discussion, etc.) if none exist yet. Safe to re-run — it skips rows that already exist.
+No sample categories or forums are shipped — create your structure under **Admin → Forum** after install.
 
 ---
 
