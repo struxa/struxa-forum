@@ -1,0 +1,433 @@
+{% extends 'layouts/base.twig' %}
+
+{# ---- SEO scaffolding ------------------------------------------------------
+   Per-page values fed into _seo_head.twig. Keeping them near the top of the
+   template makes it obvious which fields each route should pass in.
+   ------------------------------------------------------------------------ #}
+{% set _thread_url     = site_url ~ '/forum/' ~ forum.slug ~ '/' ~ thread.slug %}
+{% set _thread_url_p   = forum_page > 1 ? _thread_url ~ '?page=' ~ forum_page : _thread_url %}
+{% set _op             = forum_posts|first %}
+{% set _op_excerpt     = forum_excerpt(_op.body_markdown|default(''), 240) %}
+{% set _op_author      = _op and _op.author_user_id ? forum_users_by_id[_op.author_user_id]|default(null) : null %}
+{% set _op_author_name = _op_author ? _op_author.display_name : 'a community member' %}
+{% set _seo_title      = thread.title|e %}
+{% set _seo_desc       = _op_excerpt ?: ('Discussion in ' ~ forum.name ~ ' on FL350.') %}
+{% set _seo_image      = _op_author and _op_author.avatar ? _op_author.avatar : (site_url ~ theme_asset('images/fl350-logo.png')) %}
+
+{% block title %}{{ thread.title|e }} — {{ forum.name|e }} — {{ settings.site_name|default('FL350') }}{% endblock %}
+{% block meta_description %}{{ _seo_desc|e }}{% endblock %}
+{% block canonical_href %}{{ _thread_url_p|e('html_attr') }}{% endblock %}
+{% block og_type %}article{% endblock %}
+{% block og_title %}{{ _seo_title }}{% endblock %}
+{% block og_description %}{{ _seo_desc|e }}{% endblock %}
+{% block twitter_title %}{{ _seo_title }}{% endblock %}
+{% block twitter_description %}{{ _seo_desc|e }}{% endblock %}
+
+{% block meta_extra %}
+  {{ parent() }}
+  {% include '@plugin_forum_plugin/public/_seo_head.twig' with {
+    canonical: _thread_url_p,
+    prev_url:  forum_page > 1 ? (_thread_url ~ '?page=' ~ (forum_page - 1)) : null,
+    next_url:  forum_page < forum_total_pages ? (_thread_url ~ '?page=' ~ (forum_page + 1)) : null,
+    og_title:  _seo_title,
+    og_description: _seo_desc,
+    og_image:  _seo_image,
+    article: {
+      published_time: thread.created_at|date('c'),
+      modified_time:  (thread.last_post_at ?? thread.updated_at ?? thread.created_at)|date('c'),
+      author:         _op_author_name,
+      section:        forum.name,
+      tags:           forum_thread_tags|default([])|map(t => t.name)
+    },
+    jsonld: [
+      {
+        '@context': 'https://schema.org',
+        '@type':    'BreadcrumbList',
+        'itemListElement': [
+          { '@type': 'ListItem', position: 1, name: 'Home',        item: site_url ~ '/' },
+          { '@type': 'ListItem', position: 2, name: 'Forum',       item: site_url ~ '/forum' },
+          { '@type': 'ListItem', position: 3, name: forum.name,    item: site_url ~ '/forum/' ~ forum.slug },
+          { '@type': 'ListItem', position: 4, name: thread.title,  item: _thread_url }
+        ]
+      },
+      {
+        '@context':     'https://schema.org',
+        '@type':        'DiscussionForumPosting',
+        'mainEntityOfPage': { '@type': 'WebPage', '@id': _thread_url },
+        'headline':     thread.title,
+        'articleBody':  _op_excerpt,
+        'datePublished': thread.created_at|date('c'),
+        'dateModified':  (thread.last_post_at ?? thread.updated_at ?? thread.created_at)|date('c'),
+        'author': _op_author ? {
+          '@type': 'Person',
+          'name':  _op_author.display_name,
+          'url':   site_url ~ '/forum/user/' ~ _op_author.id
+        } : { '@type': 'Person', 'name': _op_author_name },
+        'publisher': {
+          '@type': 'Organization',
+          'name':  settings.site_name|default('FL350'),
+          'logo':  { '@type': 'ImageObject', 'url': site_url ~ theme_asset('images/fl350-logo.png') }
+        },
+        'interactionStatistic': [
+          { '@type': 'InteractionCounter', 'interactionType': 'https://schema.org/ViewAction',     'userInteractionCount': thread.views_count|default(0) },
+          { '@type': 'InteractionCounter', 'interactionType': 'https://schema.org/ReplyAction',    'userInteractionCount': thread.replies_count|default(0) },
+          { '@type': 'InteractionCounter', 'interactionType': 'https://schema.org/LikeAction',     'userInteractionCount': thread.likes_count|default(0) }
+        ],
+        'discussionUrl': _thread_url,
+        'keywords':      forum_thread_tags|default([])|map(t => t.name)|join(', ')
+      }
+    ]
+  } only %}
+{% endblock %}
+
+{% block head_extra %}
+  <link rel="stylesheet" href="{{ forum_asset('css/forum.css') }}" />
+{% endblock %}
+
+{% block body %}
+  <main class="forum-page" id="content">
+
+    <header class="forum-hero forum-hero--narrow forum-thread-hero">
+      <div class="forum-shell">
+        <nav class="forum-crumbs">
+          <a href="/forum">Forum</a>
+          <span aria-hidden="true">/</span>
+          <a href="/forum/{{ forum.slug|e('html_attr') }}">{{ forum.name|e }}</a>
+          <span aria-hidden="true">/</span>
+          <span class="forum-crumbs-current">{{ thread.title|e }}</span>
+        </nav>
+        <h1>
+          {% if thread.is_sticky %}<i class="fa-solid fa-thumbtack" title="Sticky" aria-hidden="true"></i> {% endif %}
+          {% if thread.is_locked %}<i class="fa-solid fa-lock" title="Locked" aria-hidden="true"></i> {% endif %}
+          {{ thread.title|e }}
+        </h1>
+        <div class="forum-thread-hero-meta">
+          <span>{{ thread.replies_count|number_format }} repl{{ thread.replies_count == 1 ? 'y' : 'ies' }}</span>
+          <span>·</span>
+          <span>{{ thread.views_count|number_format }} views</span>
+          {% if thread.likes_count > 0 %}
+            <span>·</span><span>{{ thread.likes_count|number_format }} likes</span>
+          {% endif %}
+        </div>
+        {% if forum_thread_tags|default([])|length > 0 %}
+          <div class="forum-thread-tags">
+            {% for t in forum_thread_tags %}
+              <a class="forum-tag-chip" href="/forum/tag/{{ t.slug|e('html_attr') }}">#{{ t.name|e }}</a>
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        {% if forum_logged_in %}
+          <div class="forum-hero-actions">
+            <form method="post" action="/forum/thread/{{ thread.id }}/subscribe" style="display:inline;">
+              <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}" />
+              <button class="forum-btn forum-btn--ghost" type="submit">
+                <i class="fa-{{ forum_subscribed ? 'solid' : 'regular' }} fa-bell" aria-hidden="true"></i>
+                {{ forum_subscribed ? 'Watching' : 'Watch thread' }}
+              </button>
+            </form>
+            {% if not thread.is_locked or forum_is_moderator %}
+              <a class="forum-btn forum-btn--primary" href="#reply">
+                <i class="fa-solid fa-reply" aria-hidden="true"></i> Reply
+              </a>
+            {% endif %}
+          </div>
+        {% endif %}
+
+        {# Share strip — the canonical (page-aware) URL is the most useful
+           thing to share, because a deep-link to page 3 of a thread won't
+           dump the reader at the top of the conversation. #}
+        {% include '@plugin_forum_plugin/public/_share.twig' with {
+          url:     _thread_url_p,
+          title:   thread.title,
+          text:    _op_excerpt ?: thread.title,
+          variant: 'bar'
+        } only %}
+      </div>
+    </header>
+
+    <div class="forum-shell forum-shell--wide forum-layout">
+
+      <div class="forum-main">
+
+      {% include '@plugin_forum_plugin/partials/_flash.twig' ignore missing %}
+
+      {% include '@plugin_forum_plugin/public/_pager.twig' with {
+        base_url: _thread_url,
+        page: forum_page,
+        total_pages: forum_total_pages,
+        aria_label: 'Posts in this thread',
+        show_latest: forum_page < forum_total_pages,
+      } only %}
+
+      <ol class="forum-posts" id="posts">
+        {% for p in forum_posts %}
+          {% set _author = p.author_user_id ? forum_users_by_id[p.author_user_id]|default(null) : null %}
+          {% set _rank = forum_user_rank(_author.posts|default(0)) %}
+          <li class="forum-post{{ p.is_first_post ? ' is-op' : '' }}" id="post-{{ p.id }}">
+
+            <aside class="forum-post-author">
+              {% if _author %}
+                <a class="forum-post-avatar-link" href="/forum/user/{{ _author.id }}">
+                  <img class="forum-post-avatar" src="{{ _author.avatar|e('html_attr') }}" alt="" width="64" height="64" loading="lazy" />
+                </a>
+                <p class="forum-post-name">
+                  <a href="/forum/user/{{ _author.id }}">{{ _author.display_name|e }}</a>
+                </p>
+              {% else %}
+                <img class="forum-post-avatar" src="https://www.gravatar.com/avatar/?d=identicon&s=128" alt="" width="64" height="64" loading="lazy" />
+                <p class="forum-post-name">Unknown</p>
+              {% endif %}
+              <p class="forum-post-rank" style="--rank-colour: {{ _rank.colour|e('html_attr') }};">
+                {{ _rank.label|e }}
+              </p>
+              {% if _author %}
+                <ul class="forum-post-author-meta">
+                  <li><strong>{{ _author.posts|number_format }}</strong> posts</li>
+                  {% if _author.joined_at %}<li>Joined {{ _author.joined_at|date('M Y') }}</li>{% endif %}
+                </ul>
+              {% endif %}
+            </aside>
+
+            <div class="forum-post-body-wrap">
+
+              <header class="forum-post-head">
+                <p class="forum-post-time">
+                  <a href="#post-{{ p.id }}">
+                    <i class="fa-regular fa-clock" aria-hidden="true"></i>
+                    {{ forum_relative_time(p.created_at) }}
+                  </a>
+                  {% if p.is_first_post %} · <span class="forum-post-op-tag">OP</span>{% endif %}
+                  {% if p.edited_at %} · <span class="forum-post-edited">edited {{ forum_relative_time(p.edited_at) }}</span>{% endif %}
+                </p>
+                <p class="forum-post-postnum">#{{ loop.index + ((forum_page - 1) * (forum_posts|length)) }}</p>
+              </header>
+
+              <div class="forum-post-body" data-post-id="{{ p.id }}">
+                {{ p.body_html|raw }}
+              </div>
+
+              <footer class="forum-post-actions">
+                <form method="post" action="/forum/post/{{ p.id }}/like" class="forum-like-form" data-post-id="{{ p.id }}">
+                  <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}" />
+                  <button type="submit" class="forum-action-btn{{ forum_liked[p.id]|default(false) ? ' is-liked' : '' }}" aria-pressed="{{ forum_liked[p.id]|default(false) ? 'true' : 'false' }}" {{ not forum_logged_in ? 'disabled' : '' }} title="{{ forum_logged_in ? 'Like this post' : 'Sign in to like' }}">
+                    <i class="fa-{{ forum_liked[p.id]|default(false) ? 'solid' : 'regular' }} fa-heart" aria-hidden="true"></i>
+                    <span class="forum-like-count">{{ p.likes_count|number_format }}</span>
+                  </button>
+                </form>
+
+                {% if forum_logged_in and (not thread.is_locked or forum_is_moderator) %}
+                  <button type="button" class="forum-action-btn forum-quote-btn" data-post-id="{{ p.id }}" data-post-author="{{ (_author.display_name|default('user'))|e('html_attr') }}">
+                    <i class="fa-solid fa-quote-right" aria-hidden="true"></i> Quote
+                  </button>
+                {% endif %}
+
+                {# Share button + popover for this specific post.
+                   `data-share-popover` toggles the .forum-share-popover sibling.
+                   Always available (logged in or not) — sharing is universal. #}
+                {% set _post_url = _thread_url ~ '#post-' ~ p.id %}
+                <div class="forum-share-wrap">
+                  <button type="button"
+                          class="forum-action-btn forum-share-trigger"
+                          data-share-popover
+                          aria-expanded="false"
+                          aria-haspopup="true"
+                          aria-label="Share this post">
+                    <i class="fa-solid fa-share-nodes" aria-hidden="true"></i> Share
+                  </button>
+                  <div class="forum-share-popover" hidden role="menu" aria-label="Share options">
+                    {% include '@plugin_forum_plugin/public/_share.twig' with {
+                      url:     _post_url,
+                      title:   thread.title ~ ' — ' ~ (_author.display_name|default('a member')),
+                      text:    forum_excerpt(p.body_markdown|default(''), 160) ?: thread.title,
+                      variant: 'menu'
+                    } only %}
+                  </div>
+                </div>
+
+                {% if forum_can_edit[p.id]|default(false) %}
+                  <button type="button" class="forum-action-btn forum-edit-toggle" data-post-id="{{ p.id }}">
+                    <i class="fa-solid fa-pen" aria-hidden="true"></i> Edit
+                  </button>
+                {% endif %}
+
+                {% set _can_delete = forum_logged_in and (forum_is_moderator or p.author_user_id == forum_current_user_id|default(0)) %}
+                {% if _can_delete %}
+                  <button type="button"
+                          class="forum-action-btn forum-action-btn--danger forum-delete-btn"
+                          data-post-id="{{ p.id }}"
+                          data-post-author="{{ (_author.display_name|default('this member'))|e('html_attr') }}"
+                          data-post-is-op="{{ p.is_first_post ? '1' : '0' }}"
+                          title="{{ p.is_first_post ? 'Deleting the first post deletes the whole thread' : 'Delete this post' }}">
+                    <i class="fa-solid fa-trash" aria-hidden="true"></i> Delete
+                  </button>
+                {% endif %}
+
+                {% if forum_logged_in and p.author_user_id != forum_current_user_id|default(0) %}
+                  {% set _reported = forum_reported[p.id]|default(false) %}
+                  <button type="button"
+                          class="forum-action-btn forum-report-btn{{ _reported ? ' is-success' : '' }}"
+                          data-post-id="{{ p.id }}"
+                          data-reasons='{{ forum_report_reasons|json_encode }}'
+                          {{ _reported ? 'disabled' : '' }}
+                          title="{{ _reported ? 'You already reported this post' : 'Report this post to moderators' }}">
+                    <i class="fa-solid fa-{{ _reported ? 'check' : 'flag' }}" aria-hidden="true"></i>
+                    {{ _reported ? 'Reported' : 'Report' }}
+                  </button>
+                {% endif %}
+              </footer>
+
+              {% if forum_can_edit[p.id]|default(false) %}
+                <form class="forum-edit-form" method="post" action="/forum/post/{{ p.id }}/edit" data-post-id="{{ p.id }}" hidden>
+                  <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}" />
+                  <textarea name="body" rows="6" maxlength="20000" required>{{ p.body_markdown|e }}</textarea>
+                  <div class="forum-edit-form-actions">
+                    <button type="submit" class="forum-btn forum-btn--primary forum-btn--small">Save</button>
+                    <button type="button" class="forum-btn forum-btn--ghost forum-btn--small forum-edit-cancel" data-post-id="{{ p.id }}">Cancel</button>
+                  </div>
+                </form>
+              {% endif %}
+            </div>
+          </li>
+        {% endfor %}
+      </ol>
+
+      {% include '@plugin_forum_plugin/public/_pager.twig' with {
+        base_url: _thread_url,
+        page: forum_page,
+        total_pages: forum_total_pages,
+        aria_label: 'Posts in this thread',
+        show_latest: forum_page < forum_total_pages,
+      } only %}
+
+      {# ---- Reply form ------------------------------------------------ #}
+      <section class="forum-reply" id="reply">
+        {% if forum_logged_in %}
+          {% if thread.is_locked and not forum_is_moderator %}
+            <div class="forum-card forum-card--info">
+              <p><i class="fa-solid fa-lock" aria-hidden="true"></i> This thread is locked — replies are disabled.</p>
+            </div>
+          {% else %}
+            <form method="post" action="/forum/post/reply" class="forum-reply-form">
+              <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}" />
+              <input type="hidden" name="thread_id" value="{{ thread.id }}" />
+              <label for="reply-body" class="forum-reply-label">Post a reply</label>
+              <textarea id="reply-body" name="body" rows="8" maxlength="20000" required
+                        data-forum-wordcount="reply-wordcount"
+                        data-min-words="{{ forum_min_words|default(15) }}"
+                        placeholder="Write your reply… Markdown is supported (**bold**, _italic_, &gt; quote, lists, links)."></textarea>
+
+              {% if forum_min_words|default(0) > 0 %}
+                <div class="forum-wordcount" id="reply-wordcount" data-min="{{ forum_min_words }}" aria-live="polite">
+                  <span class="forum-wordcount__icon" aria-hidden="true"><i class="fa-solid fa-pen-nib"></i></span>
+                  <span class="forum-wordcount__text">
+                    <strong class="forum-wordcount__current">0</strong>
+                    <span class="forum-wordcount__sep">/</span>
+                    <strong class="forum-wordcount__min">{{ forum_min_words }}</strong>
+                    <span> words minimum</span>
+                  </span>
+                  <span class="forum-wordcount__status" aria-hidden="true">
+                    <i class="fa-solid fa-circle-exclamation forum-wordcount__icon-warn"></i>
+                    <i class="fa-solid fa-circle-check forum-wordcount__icon-ok"></i>
+                  </span>
+                </div>
+              {% endif %}
+
+              <div class="forum-reply-actions">
+                <p class="forum-reply-hint">Tip: select text in a post and hit <strong>Quote</strong> to copy it into your reply. Outbound links are <code>nofollow</code>.</p>
+                <button type="submit" class="forum-btn forum-btn--primary">Post reply</button>
+              </div>
+            </form>
+          {% endif %}
+        {% else %}
+          <div class="forum-card forum-card--info">
+            <p><a href="{{ url_for('login') }}">Sign in</a> or <a href="{{ url_for('register') }}">create a free account</a> to reply.</p>
+          </div>
+        {% endif %}
+      </section>
+
+      </div>{# /.forum-main #}
+
+      {% include '@plugin_forum_plugin/widgets/sidebar.twig' %}
+
+    </div>{# /.forum-layout #}
+
+    {# Full-width credit cards strip beneath the thread + sidebar grid.
+       Mirrors the /forum index treatment so the offer is consistent
+       across forum surfaces and lives outside the layout grid so it
+       can stretch the full content width. #}
+    <div class="forum-shell forum-shell--wide">
+      {% include '@plugin_forum_plugin/widgets/credit-cards-strip.twig' with {
+        forum_cards: forum_sidebar.cards|default([])
+      } only %}
+    </div>
+
+    {# Delete confirmation modal — shown by forum.js when "Delete" is
+       clicked. We render one shared modal and rewrite its hidden form
+       action + body copy in JS to target the specific post the user
+       clicked. Keeps DOM small even on long threads. #}
+    {% if forum_logged_in %}
+      <div class="forum-modal forum-modal--danger" id="forum-delete-modal" hidden role="dialog" aria-modal="true" aria-labelledby="forum-delete-title">
+        <div class="forum-modal-backdrop" data-forum-modal-close></div>
+        <div class="forum-modal-card" role="document">
+          <header class="forum-modal-head">
+            <div class="forum-modal-icon forum-modal-icon--danger" aria-hidden="true">
+              <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <div>
+              <h2 id="forum-delete-title">Delete this post?</h2>
+              <p class="forum-modal-sub" id="forum-delete-sub">This action soft-deletes the post. Moderators can restore it from the admin area.</p>
+            </div>
+            <button type="button" class="forum-modal-close" data-forum-modal-close aria-label="Close">×</button>
+          </header>
+          <form method="post" action="" class="forum-modal-body" id="forum-delete-form">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}" />
+            <div class="forum-modal-warning" id="forum-delete-warning" hidden>
+              <i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>
+              <span><strong>Heads up —</strong> this is the first post in the thread. Deleting it will hide the entire thread from public view.</span>
+            </div>
+            <div class="forum-modal-actions">
+              <button type="button" class="forum-btn forum-btn--ghost" data-forum-modal-close>Cancel</button>
+              <button type="submit" class="forum-btn forum-btn--danger"><i class="fa-solid fa-trash" aria-hidden="true"></i> <span id="forum-delete-confirm-label">Delete post</span></button>
+            </div>
+          </form>
+        </div>
+      </div>
+    {% endif %}
+
+    {# Report modal — populated + shown by forum.js when "Report" is clicked. #}
+    {% if forum_logged_in %}
+      <div class="forum-modal" id="forum-report-modal" hidden role="dialog" aria-modal="true" aria-labelledby="forum-report-title">
+        <div class="forum-modal-backdrop" data-forum-modal-close></div>
+        <div class="forum-modal-card" role="document">
+          <header class="forum-modal-head">
+            <h2 id="forum-report-title">Report this post</h2>
+            <button type="button" class="forum-modal-close" data-forum-modal-close aria-label="Close">×</button>
+          </header>
+          <form method="post" action="" class="forum-modal-body" id="forum-report-form">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}" />
+            <p class="forum-modal-hint">Tell us what's wrong with this post. Reports are sent to forum moderators — please don't use this for general disagreement.</p>
+            <div class="forum-field">
+              <label class="forum-reply-label" for="forum-report-reason">Reason</label>
+              <select id="forum-report-reason" name="reason_key" required>
+                {% for key, label in forum_report_reasons %}
+                  <option value="{{ key|e('html_attr') }}">{{ label|e }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="forum-field">
+              <label class="forum-reply-label" for="forum-report-text">Add context <span style="font-weight:500;color:#94a3b8;">(optional)</span></label>
+              <textarea id="forum-report-text" name="reason_text" rows="3" maxlength="500" placeholder="Optional — anything that helps the moderators."></textarea>
+            </div>
+            <div class="forum-modal-actions">
+              <button type="button" class="forum-btn forum-btn--ghost" data-forum-modal-close>Cancel</button>
+              <button type="submit" class="forum-btn forum-btn--primary"><i class="fa-solid fa-flag" aria-hidden="true"></i> Submit report</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    {% endif %}
+  </main>
+
+  <script defer src="{{ forum_asset('js/forum.js') }}"></script>
+{% endblock %}

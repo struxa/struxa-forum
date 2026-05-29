@@ -1,0 +1,15 @@
+{# Per-thread page chips on forum / tag listings (multi-page threads). #}
+{% set _pages = forum_thread_page_count(replies_count|default(0), posts_per_page|default(15)) %}
+{% if _pages > 1 %}
+  <div class="forum-thread-pages" aria-label="Pages in this thread">
+    {% include '@plugin_forum_plugin/public/_pager.twig' with {
+      base_url: thread_url,
+      page: 1,
+      total_pages: _pages,
+      show_prev_next: false,
+      show_latest: true,
+      compact: true,
+      window: 2,
+    } only %}
+  </div>
+{% endif %}

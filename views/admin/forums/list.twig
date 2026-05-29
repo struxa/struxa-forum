@@ -1,0 +1,82 @@
+{% extends 'admin/base.twig' %}
+
+{% block admin_title %}Forums{% endblock %}
+
+{% block admin_hero_title %}
+  <h1 class="admin-hero-title">Forums</h1>
+{% endblock %}
+
+{% block admin_hero_sub %}
+  <p class="admin-hero-sub">Individual discussion areas. Group them under categories; nest a forum under another to create sub-forums.</p>
+{% endblock %}
+
+{% block admin_hero_actions %}
+  <a class="admin-btn-primary" href="{{ url_for('plugin.forum.admin.forums.new') }}">+ New forum</a>
+  <a class="admin-btn-secondary" href="{{ url_for('plugin.forum.admin.categories') }}">Categories</a>
+{% endblock %}
+
+{% block admin_content %}
+  <section class="admin-section">
+    <div class="admin-table-wrap" style="overflow:auto;">
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th style="width:64px;">Order</th>
+            <th>Forum</th>
+            <th>Category</th>
+            <th>Parent</th>
+            <th>Threads</th>
+            <th>Posts</th>
+            <th>State</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for f in forum_forums %}
+            <tr>
+              <td><strong>{{ f.sort_order }}</strong></td>
+              <td>
+                <a class="admin-link forum-admin-name" href="{{ url_for('plugin.forum.admin.forums.edit', { id: f.id }) }}">
+                  {% if f.icon_image %}
+                    <img class="forum-admin-icon-img" src="{{ f.icon_image|e('html_attr') }}" alt="" loading="lazy" />
+                  {% elseif f.icon %}
+                    <i class="fa-solid fa-{{ f.icon|e('html_attr') }}" aria-hidden="true" style="margin-right:6px;color:#64748b;"></i>
+                  {% endif %}
+                  {{ f.name|e }}
+                </a>
+                {% if f.description %}<p class="admin-hint" style="margin:4px 0 0;font-size:12px;">{{ f.description|e }}</p>{% endif %}
+                <p class="admin-hint" style="margin:2px 0 0;font-size:11px;">
+                  /forum/<code>{{ f.slug|e }}</code>
+                </p>
+              </td>
+              <td>{{ f.category.name|e }}</td>
+              <td>
+                {% if f.parent_id %}
+                  {% for pf in forum_forums|filter(pf => pf.id == f.parent_id) %}
+                    {{ pf.name|e }}
+                  {% endfor %}
+                {% else %}—{% endif %}
+              </td>
+              <td>{{ f.threads_count|number_format }}</td>
+              <td>{{ f.posts_count|number_format }}</td>
+              <td>
+                {% if f.is_locked %}<span style="color:#ef4444;font-weight:700;">locked</span>{% endif %}
+                {% if f.is_hidden %} <span style="color:#64748b;font-weight:600;">hidden</span>{% endif %}
+              </td>
+              <td style="white-space:nowrap;">
+                <a class="admin-link" href="{{ site_url }}/forum/{{ f.slug|e('html_attr') }}" target="_blank" rel="noopener">View</a>
+                <a class="admin-link" href="{{ url_for('plugin.forum.admin.forums.edit', { id: f.id }) }}">Edit</a>
+                <form method="post" action="/admin/forum/forums/{{ f.id }}/delete" style="display:inline;" onsubmit="return confirm('Delete this forum and all its threads? This cannot be undone.');">
+                  <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}" />
+                  <button class="admin-link" type="submit" style="background:none;border:0;cursor:pointer;color:#dc2626;">Delete</button>
+                </form>
+              </td>
+            </tr>
+          {% else %}
+            <tr><td colspan="8" class="admin-empty">No forums yet — add one with the button above.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+{% endblock %}

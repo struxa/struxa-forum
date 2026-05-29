@@ -1,0 +1,111 @@
+{# =======================================================================
+   Shared SEO head fragment for forum public pages.
+
+   Rendered inside `{% block meta_extra %}` of layouts/base.twig. The base
+   layout already emits:
+     - <title>                    (via `block title`)
+     - <meta name="description">  (via `block meta_description`)
+     - <link rel="canonical">     (via `block canonical_href`)
+     - og:type / og:site_name / og:title / og:description  (overridable)
+     - twitter:card / twitter:title / twitter:description  (overridable)
+
+   So this partial fills in the gaps the base doesn't cover:
+     - rel="prev" / rel="next" for paginated listings
+     - <meta name="robots"> when caller wants noindex/nofollow
+     - og:url + og:image + og:image:alt + og:locale
+     - article:* meta for `og:type = article` pages
+     - twitter:site / twitter:image / twitter:image:alt
+     - JSON-LD scripts — caller passes a list of pre-built schema dicts and
+       we json_encode each in its own <script type="application/ld+json">.
+
+   Each calling template is expected to override the base layout's blocks
+   for the duplicate fields. See thread.twig / forum.twig for the pattern.
+
+   Caller contract:
+     {
+       canonical      : "https://example.com/forum/foo",
+       robots         : "index,follow"                          # default
+       prev_url       : "...page=1",                            # optional
+       next_url       : "...page=3",                            # optional
+       og_title       : "...",                                  # optional, for og:image:alt fallback
+       og_description : "...",
+       og_image       : "https://…/og.png",                     # absolute URL
+       og_locale      : "en_GB",                                # default en_GB
+       twitter_site   : "@FL350com",                            # optional
+       article        : { published_time, modified_time, author, section, tags }
+       jsonld         : [ {…}, {…} ]                            # Twig hashes
+     }
+   ======================================================================= #}
+{% set _site_url   = site_url|default('') %}
+{% set _twitter    = twitter_site|default('') %}
+{% set _robots     = robots|default('index,follow') %}
+{% set _og_locale  = og_locale|default(settings.site_html_lang|default('en') == 'en' ? 'en_GB' : settings.site_html_lang|default('en')) %}
+{% set _og_title   = og_title|default(page_title|default(settings.site_name|default('FL350'))) %}
+{% set _og_desc    = og_description|default(meta_description|default('')) %}
+{% set _og_image   = og_image|default(_site_url ~ theme_asset('images/fl350-logo.png')) %}
+
+{# Pagination signals. rel=prev/next isn't a Google ranking signal any more
+   but Bing/DuckDuckGo still use it, and screen readers leverage it for
+   keyboard navigation between paginated pages. #}
+{% if prev_url is defined and prev_url %}
+  <link rel="prev" href="{{ prev_url|e('html_attr') }}" />
+{% endif %}
+{% if next_url is defined and next_url %}
+  <link rel="next" href="{{ next_url|e('html_attr') }}" />
+{% endif %}
+
+{# Robots policy. Public pages default to index,follow; search results,
+   /new forms and forum listings beyond page 1 set noindex,follow. #}
+<meta name="robots" content="{{ _robots|e('html_attr') }}" />
+
+{# OG fields the base layout doesn't already emit. og:url + og:image +
+   article:* are the biggest wins for rich previews in messaging apps. #}
+{% if canonical is defined and canonical %}
+  <meta property="og:url" content="{{ canonical|e('html_attr') }}" />
+{% endif %}
+<meta property="og:locale" content="{{ _og_locale|e('html_attr') }}" />
+{% if _og_image %}
+  <meta property="og:image" content="{{ _og_image|e('html_attr') }}" />
+  <meta property="og:image:alt" content="{{ _og_title|e('html_attr') }}" />
+{% endif %}
+
+{# Article-specific OG (Google + Facebook honour these for forum threads). #}
+{% if article is defined and article %}
+  {% if article.published_time is defined %}
+    <meta property="article:published_time" content="{{ article.published_time|e('html_attr') }}" />
+  {% endif %}
+  {% if article.modified_time is defined %}
+    <meta property="article:modified_time" content="{{ article.modified_time|e('html_attr') }}" />
+  {% endif %}
+  {% if article.author is defined and article.author %}
+    <meta property="article:author" content="{{ article.author|e('html_attr') }}" />
+  {% endif %}
+  {% if article.section is defined and article.section %}
+    <meta property="article:section" content="{{ article.section|e('html_attr') }}" />
+  {% endif %}
+  {% for t in article.tags|default([]) %}
+    <meta property="article:tag" content="{{ t|e('html_attr') }}" />
+  {% endfor %}
+{% endif %}
+
+{# Twitter fields the base layout doesn't already emit. #}
+{% if _twitter %}
+  <meta name="twitter:site" content="{{ _twitter|e('html_attr') }}" />
+{% endif %}
+{% if _og_image %}
+  <meta name="twitter:image" content="{{ _og_image|e('html_attr') }}" />
+  <meta name="twitter:image:alt" content="{{ _og_title|e('html_attr') }}" />
+{% endif %}
+
+{# JSON-LD blocks. Each entry is a Twig hash; we encode it server-side with
+   JSON_HEX_TAG so a user-supplied title containing `</script>` cannot
+   break out of the script tag (`<` becomes `\u003c`), and with
+   UNESCAPED_SLASHES so URLs stay readable in source.
+
+   The `|raw` is necessary because Twig's autoescape would otherwise turn
+   `"`, `{`, `}` into HTML entities and break JSON parsing. JSON_HEX_TAG
+   makes raw output safe to embed inside <script>. #}
+{% set _ld_flags = constant('JSON_HEX_TAG') b-or constant('JSON_UNESCAPED_SLASHES') b-or constant('JSON_UNESCAPED_UNICODE') %}
+{% for ld in jsonld|default([]) %}
+  <script type="application/ld+json">{{ ld|json_encode(_ld_flags)|raw }}</script>
+{% endfor %}

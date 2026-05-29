@@ -1,0 +1,28 @@
+{# ============================================================
+   Forum flash partial — renders the global flash_error /
+   flash_success bag set by Slim handlers and consumed once by
+   bootstrap/web_app.php. Mounted inside any forum-shell and
+   styled by `.forum-flash` rules in forum.css.
+   ============================================================ #}
+{% if flash_error|default('') != '' %}
+  <div class="forum-flash forum-flash--error" role="alert">
+    <span class="forum-flash__icon" aria-hidden="true">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+    </span>
+    <div class="forum-flash__body">{{ flash_error }}</div>
+    <button type="button" class="forum-flash__close" aria-label="Dismiss" onclick="this.parentElement.remove()">
+      <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+    </button>
+  </div>
+{% endif %}
+{% if flash_success|default('') != '' %}
+  <div class="forum-flash forum-flash--success" role="status">
+    <span class="forum-flash__icon" aria-hidden="true">
+      <i class="fa-solid fa-circle-check"></i>
+    </span>
+    <div class="forum-flash__body">{{ flash_success }}</div>
+    <button type="button" class="forum-flash__close" aria-label="Dismiss" onclick="this.parentElement.remove()">
+      <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+    </button>
+  </div>
+{% endif %}

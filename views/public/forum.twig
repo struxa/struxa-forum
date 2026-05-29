@@ -1,0 +1,198 @@
+{% extends 'layouts/base.twig' %}
+
+{% set _forum_url   = site_url ~ '/forum/' ~ forum.slug %}
+{% set _forum_url_p = forum_page > 1 ? _forum_url ~ '?page=' ~ forum_page : _forum_url %}
+{% set _seo_desc    = (forum.description ?? 'Discussion in ' ~ forum.name)|e %}
+
+{% block title %}{{ forum.name|e }} — Forum — {{ settings.site_name|default('FL350') }}{% endblock %}
+{% block meta_description %}{{ _seo_desc }}{% endblock %}
+{% block canonical_href %}{{ _forum_url_p|e('html_attr') }}{% endblock %}
+{% block og_title %}{{ forum.name|e }} — Forum{% endblock %}
+{% block og_description %}{{ _seo_desc }}{% endblock %}
+{% block twitter_title %}{{ forum.name|e }} — Forum{% endblock %}
+{% block twitter_description %}{{ _seo_desc }}{% endblock %}
+
+{% block meta_extra %}
+  {{ parent() }}
+  {# Paginated forum listings: only page 1 is indexable. Pages 2+ get
+     noindex,follow so Google doesn't index near-duplicate listings — the
+     thread URLs they link to remain fully indexable. #}
+  {% include '@plugin_forum_plugin/public/_seo_head.twig' with {
+    canonical: _forum_url_p,
+    robots:    forum_page > 1 ? 'noindex,follow' : 'index,follow',
+    prev_url:  forum_page > 1 ? (_forum_url ~ '?page=' ~ (forum_page - 1)) : null,
+    next_url:  forum_page < forum_total_pages ? (_forum_url ~ '?page=' ~ (forum_page + 1)) : null,
+    og_title:  forum.name ~ ' — Forum',
+    og_description: _seo_desc,
+    jsonld: [
+      {
+        '@context': 'https://schema.org',
+        '@type':    'BreadcrumbList',
+        'itemListElement': [
+          { '@type': 'ListItem', position: 1, name: 'Home',  item: site_url ~ '/' },
+          { '@type': 'ListItem', position: 2, name: 'Forum', item: site_url ~ '/forum' },
+          { '@type': 'ListItem', position: 3, name: forum.name, item: _forum_url }
+        ]
+      },
+      {
+        '@context': 'https://schema.org',
+        '@type':    'CollectionPage',
+        'name':     forum.name,
+        'description': _seo_desc,
+        'url':      _forum_url_p,
+        'isPartOf': { '@type': 'WebSite', 'name': settings.site_name|default('FL350'), 'url': site_url },
+        'mainEntity': {
+          '@type': 'ItemList',
+          'itemListOrder': 'https://schema.org/ItemListOrderDescending',
+          'numberOfItems': forum_threads|length,
+          'itemListElement': forum_threads|map((t, idx) => {
+            '@type':    'ListItem',
+            'position': idx + 1,
+            'url':      _forum_url ~ '/' ~ t.slug,
+            'name':     t.title
+          })
+        }
+      }
+    ]
+  } only %}
+{% endblock %}
+
+{% block head_extra %}
+  <link rel="stylesheet" href="{{ forum_asset('css/forum.css') }}" />
+{% endblock %}
+
+{% block body %}
+  <main class="forum-page" id="content">
+
+    <header class="forum-hero forum-hero--narrow">
+      <div class="forum-shell">
+        <nav class="forum-crumbs">
+          <a href="/forum">Forum</a>
+          <span aria-hidden="true">/</span>
+          <span>{{ forum.name|e }}</span>
+        </nav>
+        <h1>
+          {% if forum.icon_image %}
+            <span class="forum-hero-icon forum-hero-icon--image" aria-hidden="true">
+              <img src="{{ forum.icon_image|e('html_attr') }}" alt="" loading="lazy" />
+            </span>
+          {% elseif forum.icon %}
+            <i class="fa-solid fa-{{ forum.icon|e('html_attr') }}" aria-hidden="true"></i>
+          {% endif %}
+          {{ forum.name|e }}
+        </h1>
+        {% if forum.description %}
+          <p class="forum-hero-sub">{{ forum.description|e }}</p>
+        {% endif %}
+
+        <div class="forum-hero-actions">
+          {% if forum.is_locked %}
+            <span class="forum-locked-badge"><i class="fa-solid fa-lock" aria-hidden="true"></i> Forum is locked — no new threads</span>
+          {% elseif forum_logged_in %}
+            <a class="forum-btn forum-btn--primary" href="/forum/{{ forum.slug|e('html_attr') }}/new">
+              <i class="fa-solid fa-plus" aria-hidden="true"></i> New thread
+            </a>
+          {% else %}
+            <a class="forum-btn forum-btn--primary" href="{{ url_for('login') }}?{{ {'next': ('/forum/' ~ forum.slug ~ '/new')}|url_encode }}">
+              <i class="fa-solid fa-arrow-right-to-bracket" aria-hidden="true"></i> Sign in to post
+            </a>
+          {% endif %}
+
+          <form method="get" action="/forum/search" class="forum-hero-search" role="search">
+            <input type="hidden" name="forum_id" value="{{ forum.id }}" />
+            <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+            <input type="search" name="q" placeholder="Search this forum…" />
+          </form>
+        </div>
+      </div>
+    </header>
+
+    <div class="forum-shell forum-shell--wide forum-layout">
+
+      <div class="forum-main">
+
+        {% include '@plugin_forum_plugin/partials/_flash.twig' ignore missing %}
+
+        <div class="forum-toolbar">
+          <p class="forum-toolbar-count">
+            <strong>{{ forum_threads|length|number_format }}</strong> thread{{ forum_threads|length == 1 ? '' : 's' }} shown
+          </p>
+          {% if forum_logged_in and not forum.is_locked %}
+            <a class="forum-btn forum-btn--primary forum-btn--small" href="/forum/{{ forum.slug|e('html_attr') }}/new">
+              <i class="fa-solid fa-plus" aria-hidden="true"></i> New thread
+            </a>
+          {% endif %}
+        </div>
+
+        <section class="forum-card forum-card--threads">
+          <ul class="forum-threads">
+            {% for t in forum_threads %}
+              {% set _author = t.author_user_id ? forum_users_by_id[t.author_user_id]|default(null) : null %}
+              {% set _last = t.last_poster_id ? forum_users_by_id[t.last_poster_id]|default(null) : null %}
+              <li class="forum-thread-row{{ t.is_sticky ? ' is-sticky' : '' }}{{ t.is_locked ? ' is-locked' : '' }}">
+                {% if _author %}
+                  <img class="forum-thread-avatar" src="{{ _author.avatar|e('html_attr') }}" alt="" loading="lazy" width="44" height="44" />
+                {% else %}
+                  <div class="forum-thread-avatar forum-thread-avatar--placeholder"><i class="fa-solid fa-user" aria-hidden="true"></i></div>
+                {% endif %}
+                <div class="forum-thread-main">
+                  <div class="forum-thread-flags">
+                    {% if t.is_sticky %}<span class="forum-pill forum-pill--sticky"><i class="fa-solid fa-thumbtack" aria-hidden="true"></i> Pinned</span>{% endif %}
+                    {% if t.is_locked %}<span class="forum-pill forum-pill--locked"><i class="fa-solid fa-lock" aria-hidden="true"></i> Locked</span>{% endif %}
+                    {% if t.replies_count == 0 %}<span class="forum-pill forum-pill--new">New</span>{% endif %}
+                  </div>
+                  <a class="forum-thread-title" href="/forum/{{ forum.slug|e('html_attr') }}/{{ t.slug|e('html_attr') }}">{{ t.title|e }}</a>
+                  {% include '@plugin_forum_plugin/public/_thread_page_links.twig' with {
+                    thread_url: '/forum/' ~ forum.slug ~ '/' ~ t.slug,
+                    replies_count: t.replies_count,
+                    posts_per_page: forum_posts_per_page|default(15),
+                  } only %}
+                  <p class="forum-thread-meta">
+                    {% if _author %}
+                      <span>by <a href="/forum/user/{{ _author.id }}"><strong>{{ _author.display_name|e }}</strong></a></span>
+                    {% else %}
+                      <span>by <strong>Unknown</strong></span>
+                    {% endif %}
+                    <span class="forum-dot" aria-hidden="true">·</span>
+                    <span>{{ forum_relative_time(t.created_at) }}</span>
+                  </p>
+                </div>
+                <div class="forum-thread-stats">
+                  <span><i class="fa-regular fa-comment" aria-hidden="true"></i> <strong>{{ t.replies_count|number_format }}</strong></span>
+                  <span><i class="fa-regular fa-eye" aria-hidden="true"></i> <strong>{{ t.views_count|number_format }}</strong></span>
+                  {% if t.likes_count > 0 %}<span><i class="fa-regular fa-heart" aria-hidden="true"></i> <strong>{{ t.likes_count|number_format }}</strong></span>{% endif %}
+                </div>
+                <div class="forum-thread-last">
+                  {% if _last %}
+                    <img class="forum-thread-last-avatar" src="{{ _last.avatar|e('html_attr') }}" alt="" loading="lazy" width="28" height="28" />
+                    <div>
+                      <p class="forum-thread-last-name">{{ _last.display_name|e }}</p>
+                      <p class="forum-thread-last-time">{{ forum_relative_time(t.last_post_at ?? t.created_at) }}</p>
+                    </div>
+                  {% else %}
+                    <p class="forum-thread-last-time">{{ forum_relative_time(t.last_post_at ?? t.created_at) }}</p>
+                  {% endif %}
+                </div>
+              </li>
+            {% else %}
+              <li class="forum-thread-row forum-thread-row--empty">
+                No threads yet. {% if forum_logged_in and not forum.is_locked %}<a href="/forum/{{ forum.slug|e('html_attr') }}/new">Be the first to post →</a>{% endif %}
+              </li>
+            {% endfor %}
+          </ul>
+        </section>
+
+        {% include '@plugin_forum_plugin/public/_pager.twig' with {
+          base_url: _forum_url,
+          page: forum_page,
+          total_pages: forum_total_pages,
+          aria_label: 'Forum threads pagination',
+        } only %}
+
+      </div>
+
+      {% include '@plugin_forum_plugin/widgets/sidebar.twig' %}
+
+    </div>
+  </main>
+{% endblock %}

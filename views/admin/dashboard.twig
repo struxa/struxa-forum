@@ -1,0 +1,409 @@
+{% extends 'admin/base.twig' %}
+
+{% block admin_title %}{{ page_title|default('Forum admin') }}{% endblock %}
+
+{# Plugin-owned admin CSS. Previously lived appended to core's
+   public/css/admin.css; moved into the plugin so Struxa self-updates
+   don't wipe it out. Cache-busted by forum_asset(). #}
+{% block admin_head %}
+  <link rel="stylesheet" href="{{ forum_asset('css/forum-admin.css') }}" />
+{% endblock %}
+
+{% block admin_hero_title %}
+  <h1 class="admin-hero-title">Forum dashboard</h1>
+{% endblock %}
+
+{% block admin_hero_sub %}
+  <p class="admin-hero-sub">Community at a glance — members, threads, posts, and who's around right now.</p>
+{% endblock %}
+
+{% block admin_hero_actions %}
+  <a class="admin-btn-primary" href="{{ url_for('plugin.forum.admin.forums.new') }}">+ New forum</a>
+  <a class="admin-btn-secondary" href="{{ url_for('plugin.forum.admin.threads') }}">Moderate threads</a>
+{% endblock %}
+
+{% block admin_content %}
+
+  {# =========================================================================
+     Top KPI tiles — each is a `.admin-card` with a gradient accent and an
+     icon glyph. Numbers come from the snapshot the route handler primed.
+     ========================================================================= #}
+  {% set _delta       = posts_delta|default(0) %}
+  {% set _deltaClass  = _delta > 0 ? 'up' : (_delta < 0 ? 'down' : 'flat') %}
+  {% set _deltaArrow  = _delta > 0 ? '▲' : (_delta < 0 ? '▼' : '·') %}
+  {% set _open_reports = report_counts.open|default(0) %}
+
+  <section class="admin-section">
+    <div class="forum-admin-kpis">
+      <article class="forum-admin-kpi forum-admin-kpi--members">
+        <div class="forum-admin-kpi-icon" aria-hidden="true">
+          <i class="fa-solid fa-users"></i>
+        </div>
+        <div class="forum-admin-kpi-body">
+          <p class="forum-admin-kpi-label">Members</p>
+          <p class="forum-admin-kpi-value">{{ forum_stats.members|number_format }}</p>
+          {% if forum_stats.newest_member %}
+            <p class="forum-admin-kpi-hint">
+              Newest: <strong>{{ forum_stats.newest_member.display_name|e }}</strong>
+            </p>
+          {% endif %}
+        </div>
+      </article>
+
+      <article class="forum-admin-kpi forum-admin-kpi--threads">
+        <div class="forum-admin-kpi-icon" aria-hidden="true">
+          <i class="fa-solid fa-message"></i>
+        </div>
+        <div class="forum-admin-kpi-body">
+          <p class="forum-admin-kpi-label">Threads</p>
+          <p class="forum-admin-kpi-value">{{ forum_stats.threads|number_format }}</p>
+          <p class="forum-admin-kpi-hint">
+            <a class="admin-link" href="{{ url_for('plugin.forum.admin.threads') }}">Moderate →</a>
+          </p>
+        </div>
+      </article>
+
+      <article class="forum-admin-kpi forum-admin-kpi--posts">
+        <div class="forum-admin-kpi-icon" aria-hidden="true">
+          <i class="fa-solid fa-comments"></i>
+        </div>
+        <div class="forum-admin-kpi-body">
+          <p class="forum-admin-kpi-label">Posts</p>
+          <p class="forum-admin-kpi-value">{{ forum_stats.posts|number_format }}</p>
+          <p class="forum-admin-kpi-hint">
+            <span class="forum-admin-kpi-delta forum-admin-kpi-delta--{{ _deltaClass }}">
+              {{ _deltaArrow }} {{ _delta == 0 ? 'no change' : (_delta|abs ~ '%') }}
+            </span>
+            <span class="forum-admin-kpi-dim">last 7 days</span>
+          </p>
+        </div>
+      </article>
+
+      <article class="forum-admin-kpi forum-admin-kpi--online">
+        <div class="forum-admin-kpi-icon" aria-hidden="true">
+          <span class="forum-admin-online-dot"></span>
+          <i class="fa-solid fa-bolt"></i>
+        </div>
+        <div class="forum-admin-kpi-body">
+          <p class="forum-admin-kpi-label">Online now</p>
+          <p class="forum-admin-kpi-value">{{ forum_stats.online_now|number_format }}</p>
+          <p class="forum-admin-kpi-hint forum-admin-kpi-dim">Active in last few minutes</p>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  {# =========================================================================
+     Quick action chips + moderation queue tile
+     ========================================================================= #}
+  <section class="admin-section">
+    <div class="forum-admin-quickbar">
+      <div class="forum-admin-quickbar-actions">
+        <a class="forum-admin-chip" href="{{ url_for('plugin.forum.admin.categories') }}">
+          <i class="fa-solid fa-folder-tree" aria-hidden="true"></i> Categories
+        </a>
+        <a class="forum-admin-chip" href="{{ url_for('plugin.forum.admin.forums') }}">
+          <i class="fa-solid fa-list-ul" aria-hidden="true"></i> Forums
+        </a>
+        <a class="forum-admin-chip" href="{{ url_for('plugin.forum.admin.threads') }}">
+          <i class="fa-solid fa-message" aria-hidden="true"></i> Threads
+        </a>
+        <a class="forum-admin-chip" href="{{ url_for('plugin.forum.admin.posts') }}">
+          <i class="fa-solid fa-comments" aria-hidden="true"></i> Posts
+        </a>
+        <a class="forum-admin-chip" href="{{ url_for('plugin.forum.admin.settings') }}">
+          <i class="fa-solid fa-sliders" aria-hidden="true"></i> Settings
+        </a>
+      </div>
+
+      <a class="forum-admin-queue {{ _open_reports > 0 ? 'forum-admin-queue--alert' : '' }}"
+         href="{{ url_for('plugin.forum.admin.reports') }}">
+        <span class="forum-admin-queue-icon"><i class="fa-solid fa-flag" aria-hidden="true"></i></span>
+        <span class="forum-admin-queue-text">
+          <span class="forum-admin-queue-label">Reports queue</span>
+          <span class="forum-admin-queue-count">
+            <strong>{{ _open_reports|number_format }}</strong> open
+            <span class="forum-admin-queue-sub">
+              · {{ (report_counts.resolved|default(0) + report_counts.dismissed|default(0))|number_format }} closed
+            </span>
+          </span>
+        </span>
+        <span class="forum-admin-queue-cta" aria-hidden="true">→</span>
+      </a>
+    </div>
+  </section>
+
+  {# =========================================================================
+     Activity bar chart (last 14 days). Plain Twig + CSS — no JS needed.
+     Each bar's height is a % of the max value in the series.
+     ========================================================================= #}
+  {% set _max = 1 %}
+  {% for d in posts_by_day %}{% if d.posts > _max %}{% set _max = d.posts %}{% endif %}{% endfor %}
+
+  <section class="admin-section">
+    <article class="admin-card forum-admin-panel">
+      <header class="forum-admin-panel-head">
+        <div>
+          <p class="forum-admin-panel-kicker">Activity</p>
+          <h2 class="forum-admin-panel-title">Posts in the last {{ posts_by_day|length }} days</h2>
+        </div>
+        <div class="forum-admin-panel-summary">
+          <div>
+            <span class="forum-admin-summary-num">{{ posts_this_week|number_format }}</span>
+            <span class="forum-admin-summary-lbl">this week</span>
+          </div>
+          <div>
+            <span class="forum-admin-summary-num forum-admin-summary-num--dim">{{ posts_last_week|number_format }}</span>
+            <span class="forum-admin-summary-lbl">previous</span>
+          </div>
+          <div class="forum-admin-summary-delta forum-admin-summary-delta--{{ _deltaClass }}">
+            {{ _deltaArrow }} {{ _delta|abs }}%
+          </div>
+        </div>
+      </header>
+
+      <div class="forum-admin-chart" role="img" aria-label="Posts per day for the last {{ posts_by_day|length }} days">
+        {% for d in posts_by_day %}
+          {% set _h = _max > 0 ? (d.posts / _max * 100)|round : 0 %}
+          {% set _isToday = loop.last %}
+          <div class="forum-admin-chart-col {{ _isToday ? 'is-today' : '' }}"
+               title="{{ d.date }}: {{ d.posts }} post{{ d.posts == 1 ? '' : 's' }}">
+            <div class="forum-admin-chart-bar" style="--bar-height: {{ _h }}%;">
+              <span class="forum-admin-chart-val">{{ d.posts > 0 ? d.posts : '' }}</span>
+            </div>
+            <span class="forum-admin-chart-day">{{ d.date|date('D')|slice(0, 1) }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    </article>
+  </section>
+
+  {# =========================================================================
+     Three-column row: Hot topics · Top contributors · Newest member card.
+     The remainder of the page is the existing Recent threads / Recent posts
+     pair, redesigned to match the dark theme.
+     ========================================================================= #}
+  <section class="admin-section">
+    <div class="forum-admin-grid forum-admin-grid--3">
+
+      {# ---- Hot topics last 24h ---------------------------------------- #}
+      <article class="admin-card forum-admin-panel">
+        <header class="forum-admin-panel-head forum-admin-panel-head--tight">
+          <div>
+            <p class="forum-admin-panel-kicker">
+              <span class="forum-admin-flame" aria-hidden="true">🔥</span> Hot · last 24h
+            </p>
+            <h2 class="forum-admin-panel-title">Trending threads</h2>
+          </div>
+          <a class="admin-link" href="{{ url_for('plugin.forum.admin.threads') }}">All →</a>
+        </header>
+
+        {% if hot_topics|length == 0 %}
+          <p class="admin-empty admin-empty--inline">No threads have caught fire in the last day. Quiet times!</p>
+        {% else %}
+          <ol class="forum-admin-hotlist">
+            {% for h in hot_topics %}
+              {% set _u = h.last_poster_id ? users_by_id[h.last_poster_id]|default(null) : (h.author_user_id ? users_by_id[h.author_user_id]|default(null) : null) %}
+              {% set _heat = h.hot_score|default(0) %}
+              {% set _tier = _heat >= 20 ? 'lava' : (_heat >= 8 ? 'hot' : 'warm') %}
+              <li class="forum-admin-hotitem forum-admin-hotitem--{{ _tier }}">
+                <span class="forum-admin-hotrank">{{ loop.index }}</span>
+                <a class="forum-admin-hotlink" href="{{ url_for('plugin.forum.admin.threads') }}?q={{ h.title|url_encode }}">
+                  <span class="forum-admin-hottitle">{{ h.title|e }}</span>
+                  <span class="forum-admin-hotmeta">
+                    <span>{{ (h.forum_name ?? '—')|e }}</span>
+                    {% if _u %}
+                      <span class="forum-admin-hotsep">·</span>
+                      <span>{{ _u.display_name|e }}</span>
+                    {% endif %}
+                  </span>
+                </a>
+                <div class="forum-admin-hotstats">
+                  {% if h.recent_posts > 0 %}
+                    <span class="forum-admin-hotstat" title="Replies in last 24h">
+                      <i class="fa-solid fa-fire" aria-hidden="true"></i>{{ h.recent_posts }}
+                    </span>
+                  {% else %}
+                    <span class="forum-admin-hotstat forum-admin-hotstat--new">NEW</span>
+                  {% endif %}
+                  {% if h.recent_likes > 0 %}
+                    <span class="forum-admin-hotstat forum-admin-hotstat--likes" title="Likes in last 24h">
+                      <i class="fa-solid fa-heart" aria-hidden="true"></i>{{ h.recent_likes }}
+                    </span>
+                  {% endif %}
+                </div>
+              </li>
+            {% endfor %}
+          </ol>
+        {% endif %}
+      </article>
+
+      {# ---- Top contributors ------------------------------------------- #}
+      <article class="admin-card forum-admin-panel">
+        <header class="forum-admin-panel-head forum-admin-panel-head--tight">
+          <div>
+            <p class="forum-admin-panel-kicker">
+              <i class="fa-solid fa-trophy" aria-hidden="true" style="color:#fbbf24;"></i> Top contributors
+            </p>
+            <h2 class="forum-admin-panel-title">By post count</h2>
+          </div>
+        </header>
+
+        {% if top_posters|length == 0 %}
+          <p class="admin-empty admin-empty--inline">Nobody has posted yet.</p>
+        {% else %}
+          <ul class="forum-admin-toplist">
+            {% for tp in top_posters %}
+              {% set _u = users_by_id[tp.user_id]|default(null) %}
+              {% if _u %}
+                {% set _rank = forum_user_rank(tp.posts) %}
+                <li class="forum-admin-toprow">
+                  <span class="forum-admin-topbadge">{{ loop.index }}</span>
+                  <img class="forum-admin-topavatar" src="{{ _u.avatar|e('html_attr') }}" alt="" width="32" height="32" loading="lazy" />
+                  <div class="forum-admin-topinfo">
+                    <p class="forum-admin-topname">{{ _u.display_name|e }}</p>
+                    <p class="forum-admin-toprank" style="color: {{ _rank.colour|default('#94a3b8')|e('html_attr') }};">
+                      <i class="fa-solid fa-star" aria-hidden="true"></i> {{ _rank.label|default('Member')|e }}
+                    </p>
+                  </div>
+                  <div class="forum-admin-topcount">
+                    <strong>{{ tp.posts|number_format }}</strong>
+                    <span>posts</span>
+                  </div>
+                </li>
+              {% endif %}
+            {% endfor %}
+          </ul>
+        {% endif %}
+      </article>
+
+      {# ---- Newest member spotlight + tiny tip card -------------------- #}
+      <article class="admin-card forum-admin-panel forum-admin-panel--accent">
+        <header class="forum-admin-panel-head forum-admin-panel-head--tight">
+          <div>
+            <p class="forum-admin-panel-kicker">
+              <i class="fa-solid fa-user-plus" aria-hidden="true"></i> Newest member
+            </p>
+            <h2 class="forum-admin-panel-title">Welcome them in</h2>
+          </div>
+        </header>
+
+        {% if forum_stats.newest_member %}
+          <div class="forum-admin-welcome">
+            <div class="forum-admin-welcome-avatar">
+              {{ forum_stats.newest_member.display_name|slice(0, 1)|upper|e }}
+            </div>
+            <div class="forum-admin-welcome-body">
+              <p class="forum-admin-welcome-name">{{ forum_stats.newest_member.display_name|e }}</p>
+              <p class="forum-admin-welcome-when">
+                Joined {{ forum_relative_time(forum_stats.newest_member.joined_at) }}
+              </p>
+            </div>
+          </div>
+        {% else %}
+          <p class="admin-empty admin-empty--inline">No members yet.</p>
+        {% endif %}
+
+        <div class="forum-admin-tip">
+          <p class="forum-admin-tip-head">
+            <i class="fa-solid fa-lightbulb" aria-hidden="true"></i>
+            Quick tip
+          </p>
+          <p class="forum-admin-tip-body">
+            Pin a welcome thread in <strong>Announcements</strong> to make newcomers feel at home.
+          </p>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  {# =========================================================================
+     Recent activity — two columns matching the admin dark theme.
+     ========================================================================= #}
+  <section class="admin-section">
+    <div class="forum-admin-grid forum-admin-grid--2">
+
+      <article class="admin-card forum-admin-panel">
+        <header class="forum-admin-panel-head forum-admin-panel-head--tight">
+          <div>
+            <p class="forum-admin-panel-kicker">Recent threads</p>
+            <h2 class="forum-admin-panel-title">Latest discussions</h2>
+          </div>
+          <a class="admin-link" href="{{ url_for('plugin.forum.admin.threads') }}">View all →</a>
+        </header>
+
+        {% if recent_threads|length == 0 %}
+          <p class="admin-empty admin-empty--inline">No threads yet — once members start posting, they'll show up here.</p>
+        {% else %}
+          <ul class="forum-admin-feed">
+            {% for t in recent_threads %}
+              {% set _u = t.author_user_id ? users_by_id[t.author_user_id]|default(null) : null %}
+              <li class="forum-admin-feeditem">
+                {% if _u %}
+                  <img class="forum-admin-feedavatar" src="{{ _u.avatar|e('html_attr') }}" alt="" width="34" height="34" loading="lazy" />
+                {% else %}
+                  <div class="forum-admin-feedavatar forum-admin-feedavatar--ghost">?</div>
+                {% endif %}
+                <div class="forum-admin-feedmain">
+                  <p class="forum-admin-feedtitle">{{ t.title|e }}</p>
+                  <p class="forum-admin-feedmeta">
+                    in <span class="forum-admin-feedforum">{{ (t.forum_name ?? '—')|e }}</span>
+                    {% if _u %} · by <strong>{{ _u.display_name|e }}</strong>{% endif %}
+                    · {{ t.replies_count|number_format }} repl{{ t.replies_count == 1 ? 'y' : 'ies' }}
+                    {% if t.is_sticky %} · <span class="forum-admin-tag forum-admin-tag--sticky">sticky</span>{% endif %}
+                    {% if t.is_locked %} · <span class="forum-admin-tag forum-admin-tag--locked">locked</span>{% endif %}
+                  </p>
+                </div>
+                <span class="forum-admin-feedwhen">{{ forum_relative_time(t.last_post_at ?? t.created_at) }}</span>
+              </li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      </article>
+
+      <article class="admin-card forum-admin-panel">
+        <header class="forum-admin-panel-head forum-admin-panel-head--tight">
+          <div>
+            <p class="forum-admin-panel-kicker">Recent replies</p>
+            <h2 class="forum-admin-panel-title">Latest posts</h2>
+          </div>
+          <a class="admin-link" href="{{ url_for('plugin.forum.admin.posts') }}">Moderate →</a>
+        </header>
+
+        {% if recent_posts|length == 0 %}
+          <p class="admin-empty admin-empty--inline">No replies yet.</p>
+        {% else %}
+          <ul class="forum-admin-feed">
+            {% for p in recent_posts %}
+              {% set _u = p.author_user_id ? users_by_id[p.author_user_id]|default(null) : null %}
+              <li class="forum-admin-feeditem forum-admin-feeditem--reply">
+                {% if _u %}
+                  <img class="forum-admin-feedavatar" src="{{ _u.avatar|e('html_attr') }}" alt="" width="34" height="34" loading="lazy" />
+                {% else %}
+                  <div class="forum-admin-feedavatar forum-admin-feedavatar--ghost">?</div>
+                {% endif %}
+                <div class="forum-admin-feedmain">
+                  <p class="forum-admin-feedtitle">
+                    {% if _u %}{{ _u.display_name|e }}{% else %}Guest{% endif %}
+                    <span class="forum-admin-feedon">on</span>
+                    <em>{{ (p.thread_title ?? '—')|e }}</em>
+                  </p>
+                  <p class="forum-admin-feedmeta">
+                    {{ forum_excerpt(p.body_markdown, 140)|e }}
+                  </p>
+                  <p class="forum-admin-feedfoot">
+                    <i class="fa-solid fa-heart" aria-hidden="true"></i>
+                    {{ p.likes_count|number_format }} like{{ p.likes_count == 1 ? '' : 's' }}
+                  </p>
+                </div>
+                <span class="forum-admin-feedwhen">{{ forum_relative_time(p.created_at) }}</span>
+              </li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      </article>
+
+    </div>
+  </section>
+
+{% endblock %}

@@ -1,0 +1,89 @@
+{# =====================================================================
+   Credit-cards strip — full-width row of top Avios cards.
+   Rendered on /forum (index) directly below the forum list, replacing
+   the old vertical sidebar widget. The grid auto-fits the available
+   width: 3-up on desktop, 2-up on tablets, 1-up on phones, with each
+   tile a self-contained card showing image, name, welcome bonus and
+   a "View offer" CTA.
+
+   Expects:
+     forum_cards : list of card rows from avios-credit-cards plugin
+                   (same shape as forum_sidebar.cards).
+   ===================================================================== #}
+{% set _cards = forum_cards|default([]) %}
+{% if _cards|length > 0 %}
+  <section class="forum-cards-strip" aria-labelledby="forum-cards-strip-title">
+    <header class="forum-cards-strip__head">
+      <p class="forum-cards-strip__eyebrow">
+        <i class="fa-solid fa-credit-card" aria-hidden="true"></i>
+        Earn Avios faster
+      </p>
+      <h2 class="forum-cards-strip__title" id="forum-cards-strip-title">
+        Top Avios credit cards right now
+      </h2>
+      <p class="forum-cards-strip__sub">
+        Bonus-stacked cards picked by our community — hand-checked, no fluff.
+      </p>
+    </header>
+
+    <div class="forum-cards-strip__grid">
+      {% for c in _cards %}
+        {% set _href = (c.affiliate_url ?: (c.url ?: '/credit-cards')) %}
+        {% set _ext  = _href starts with 'http' %}
+        <article class="forum-cards-strip__card" data-rank="{{ loop.index }}">
+          <span class="forum-cards-strip__rank" aria-hidden="true">
+            {% if loop.index == 1 %}<i class="fa-solid fa-crown" style="color:#fff;font-size:9px;"></i>{% endif %}
+            #{{ loop.index }}
+          </span>
+
+          <div class="forum-cards-strip__img-wrap">
+            {% if c.card_image_url %}
+              <img class="forum-cards-strip__img" src="{{ c.card_image_url|e('html_attr') }}" alt="{{ c.name|e('html_attr') }} card" loading="lazy" />
+            {% else %}
+              <div class="forum-cards-strip__img forum-cards-strip__img--placeholder" aria-hidden="true">{{ c.name|first|e }}</div>
+            {% endif %}
+          </div>
+
+          {% if c.category %}<span class="forum-cards-strip__cat">{{ c.category|e }}</span>{% endif %}
+          <h3 class="forum-cards-strip__name">{{ c.name|e }}</h3>
+
+          {% if c.welcome_bonus %}
+            <div class="forum-cards-strip__bonus">
+              <span class="forum-cards-strip__bonus-label">Welcome bonus</span>
+              <strong class="forum-cards-strip__bonus-amt">{{ c.welcome_bonus|e }}</strong>
+            </div>
+          {% endif %}
+
+          {% if c.spend_requirement or c.annual_fee %}
+            <ul class="forum-cards-strip__facts">
+              {% if c.spend_requirement %}
+                <li><i class="fa-solid fa-receipt" aria-hidden="true"></i> {{ c.spend_requirement|e }}</li>
+              {% endif %}
+              {% if c.annual_fee %}
+                <li><i class="fa-solid fa-tag" aria-hidden="true"></i> {{ c.annual_fee|e }}</li>
+              {% endif %}
+            </ul>
+          {% endif %}
+
+          <a class="forum-cards-strip__cta" href="{{ _href|e('html_attr') }}"
+            {%- if _ext %} target="_blank" rel="sponsored noopener nofollow"{% endif -%}
+          >
+            <span>View offer</span>
+            <span class="forum-cards-strip__cta-arrow" aria-hidden="true">→</span>
+          </a>
+        </article>
+      {% endfor %}
+    </div>
+
+    <div class="forum-cards-strip__footer">
+      <a class="forum-cards-strip__compare" href="/credit-cards">
+        <i class="fa-solid fa-scale-balanced" aria-hidden="true"></i>
+        <span>Compare all cards</span>
+      </a>
+      <p class="forum-cards-strip__disclaimer">
+        Sponsored links — we may earn a commission at no extra cost to you.
+        Always check the full terms and your own eligibility before applying.
+      </p>
+    </div>
+  </section>
+{% endif %}

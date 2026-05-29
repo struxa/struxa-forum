@@ -1,0 +1,281 @@
+{% extends 'admin/base.twig' %}
+
+{% block admin_title %}Posts · moderation{% endblock %}
+
+{# Forum-admin CSS lives in the plugin (cache-busted via forum_asset()) so
+   CMS self-updates can't clobber it. Inline-stale stylesheet hint kept off
+   the page so this template can never go un-styled. #}
+{% block admin_head %}
+  <link rel="stylesheet" href="{{ forum_asset('css/forum-admin.css') }}" />
+{% endblock %}
+
+{% block admin_hero_title %}
+  <h1 class="admin-hero-title">Posts</h1>
+{% endblock %}
+
+{% block admin_hero_sub %}
+  <p class="admin-hero-sub">
+    {% if forum_total is defined %}
+      {{ forum_total|number_format }} post{{ forum_total == 1 ? '' : 's' }} match — review excerpts, jump to the thread, or soft-delete spam. Deleted posts can always be restored.
+    {% else %}
+      Latest replies — review excerpts, jump to the thread, or soft-delete spam.
+    {% endif %}
+  </p>
+{% endblock %}
+
+{% block admin_hero_actions %}
+  <a class="admin-btn-primary" href="{{ url_for('plugin.forum.admin.threads') }}">
+    <i class="fa-solid fa-comments" aria-hidden="true"></i> Threads
+  </a>
+  <a class="admin-btn-secondary" href="{{ url_for('plugin.forum.admin.dashboard') }}">
+    <i class="fa-solid fa-gauge-high" aria-hidden="true"></i> Dashboard
+  </a>
+{% endblock %}
+
+{% block admin_content %}
+  {# Sticky filter bar — search by body/title, filter by forum or author. #}
+  {% set _filter = forum_filter|default({ q: '', forum_id: 0, author: '', status: '' }) %}
+  {% set _status = _filter.status %}
+
+  <section class="admin-section">
+    <form class="forum-admin-postbar" method="get" action="{{ url_for('plugin.forum.admin.posts') }}">
+      <div class="forum-admin-postbar-search">
+        <label class="admin-label" for="pa-q">Search</label>
+        <input class="admin-input" id="pa-q" name="q" type="search"
+               value="{{ _filter.q|e('html_attr') }}"
+               placeholder="Post body or thread title…" />
+      </div>
+
+      <div>
+        <label class="admin-label" for="pa-forum">Forum</label>
+        <select class="admin-input" id="pa-forum" name="forum_id">
+          <option value="0">All forums</option>
+          {% for f in forum_forums|default([]) %}
+            <option value="{{ f.id }}" {{ _filter.forum_id == f.id ? 'selected' : '' }}>
+              {{ f.name|e }}{% if f.category.name is defined %} · {{ f.category.name|e }}{% endif %}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label class="admin-label" for="pa-author">Author</label>
+        <input class="admin-input" id="pa-author" name="author" type="text"
+               value="{{ _filter.author|e('html_attr') }}"
+               placeholder="Name or user id" />
+      </div>
+
+      <input type="hidden" name="status" value="{{ _status|e('html_attr') }}" />
+
+      <div class="forum-admin-postbar-actions">
+        <button class="admin-btn-primary" type="submit">
+          <i class="fa-solid fa-filter" aria-hidden="true"></i> Filter
+        </button>
+        <a class="admin-btn-secondary" href="{{ url_for('plugin.forum.admin.posts') }}">Reset</a>
+      </div>
+    </form>
+
+    {# Status tabs — drop a tiny `status=` link instead of opening the dropdown.
+       Each preserves the user's existing search/forum/author filter values. #}
+    {% set _qs = { q: _filter.q, forum_id: _filter.forum_id, author: _filter.author } %}
+    <nav class="forum-admin-tabs" aria-label="Status filter">
+      {% set _tabs = [
+        { id: '',        label: 'Live',       icon: 'fa-circle-check', cls: '' },
+        { id: 'op',      label: 'Openers',    icon: 'fa-flag',         cls: '' },
+        { id: 'deleted', label: 'Deleted',    icon: 'fa-trash',        cls: '' },
+        { id: 'all',     label: 'All',        icon: 'fa-layer-group',  cls: '' }
+      ] %}
+      {% for t in _tabs %}
+        {% set _active = _status == t.id %}
+        <a class="forum-admin-tab {{ _active ? 'forum-admin-tab--active' : '' }}"
+           href="{{ url_for('plugin.forum.admin.posts') }}?{{ _qs|merge({ status: t.id })|url_encode }}">
+          <i class="fa-solid {{ t.icon }}" aria-hidden="true"></i>
+          {{ t.label }}
+          {% if _active and forum_total is defined %}
+            <span class="forum-admin-tab-count">{{ forum_total }}</span>
+          {% endif %}
+        </a>
+      {% endfor %}
+    </nav>
+  </section>
+
+  <section class="admin-section">
+    {% if forum_posts|length == 0 %}
+      <div class="forum-admin-postempty">
+        <i class="fa-regular fa-folder-open" aria-hidden="true"></i>
+        <p style="margin: 0;">
+          No posts match this filter.
+          {% if _filter.q or _filter.author or _filter.forum_id %}
+            Try <a class="admin-link" href="{{ url_for('plugin.forum.admin.posts') }}">resetting</a>.
+          {% endif %}
+        </p>
+      </div>
+    {% else %}
+      {% if forum_posts_has_deletable %}
+        <form id="forum-posts-bulk" class="forum-admin-postbulk" method="post" action="{{ url_for('plugin.forum.admin.posts.bulk_delete') }}"
+              onsubmit="return (function(){ var n = document.querySelectorAll('#forum-admin-post-list input.forum-post-bulk-cb:checked').length; if (n < 1) { return false; } return confirm('Soft-delete ' + n + ' post' + (n === 1 ? '' : 's') + '? They can be restored from the Deleted tab.'); })();">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}" />
+          <input type="hidden" name="return_query" value="{{ forum_posts_return_query|default('{}')|e('html_attr') }}" />
+          <label class="forum-admin-postbulk-all">
+            <input type="checkbox" id="forum-posts-select-all" aria-label="Select all posts on this page" />
+            <span>Select all on this page</span>
+          </label>
+          <button class="admin-btn-secondary forum-admin-postbulk-submit" type="submit">
+            <i class="fa-solid fa-trash" aria-hidden="true"></i> Delete selected
+          </button>
+        </form>
+      {% endif %}
+      <ol id="forum-admin-post-list" class="forum-admin-postlist forum-admin-postlist--posts-moderation" style="list-style:none;padding:0;margin:0;">
+        {% for p in forum_posts %}
+          {% set _u = p.author_user_id ? users_by_id[p.author_user_id]|default(null) : null %}
+          {% set _initial = _u ? _u.display_name|slice(0,1)|upper : '?' %}
+          {% set _classes = ['forum-admin-postcard'] %}
+          {% if p.is_deleted %}{% set _classes = _classes|merge(['forum-admin-postcard--deleted']) %}{% endif %}
+          {% if p.is_first_post %}{% set _classes = _classes|merge(['forum-admin-postcard--op']) %}{% endif %}
+
+          <li class="{{ _classes|join(' ') }}">
+            <div class="forum-admin-postcard-select">
+              {% if not p.is_deleted %}
+                <input class="forum-post-bulk-cb" type="checkbox" form="forum-posts-bulk" name="post_ids[]" value="{{ p.id }}"
+                       aria-label="Select for bulk delete, post {{ p.id }}" />
+              {% endif %}
+            </div>
+            <div class="forum-admin-postcard-avatar" aria-hidden="true">
+              {% if _u and _u.avatar is defined and _u.avatar %}
+                <img src="{{ _u.avatar|e('html_attr') }}" alt="" loading="lazy" />
+              {% else %}
+                {{ _initial }}
+              {% endif %}
+            </div>
+
+            <div class="forum-admin-postcard-body">
+              {# Head row — compact: author + relative time + badges.
+                 The thread/forum context moved to its own sub-row below so
+                 it's the second thing the eye lands on. #}
+              <div class="forum-admin-postcard-head">
+                <span class="forum-admin-postcard-author {{ _u ? '' : 'forum-admin-postcard-author--unknown' }}">
+                  {{ _u ? _u.display_name|e : 'Unknown user' }}
+                </span>
+                <span class="forum-admin-postcard-meta">
+                  <i class="fa-regular fa-clock" aria-hidden="true"></i>
+                  {{ forum_relative_time(p.created_at) }}
+                </span>
+                {% if p.is_first_post %}
+                  <span class="forum-admin-postcard-badge forum-admin-postcard-badge--op" title="First post of the thread">
+                    <i class="fa-solid fa-flag" aria-hidden="true"></i> OP
+                  </span>
+                {% endif %}
+                {% if p.is_deleted %}
+                  <span class="forum-admin-postcard-badge forum-admin-postcard-badge--deleted">
+                    <i class="fa-solid fa-trash" aria-hidden="true"></i> Deleted
+                  </span>
+                {% endif %}
+                {% if p.likes_count > 0 %}
+                  <span class="forum-admin-postcard-badge forum-admin-postcard-badge--likes" title="Likes">
+                    <i class="fa-solid fa-heart" aria-hidden="true"></i>
+                    {{ p.likes_count|number_format }}
+                  </span>
+                {% endif %}
+              </div>
+
+              {# Thread-context sub-row — forum › thread, both clickable.
+                 Truncates with ellipsis when the thread title is long. #}
+              <p class="forum-admin-postcard-crumb">
+                <a class="forum-admin-postcard-crumb-forum"
+                   href="{{ site_url }}/forum/{{ p.forum_slug|e('html_attr') }}"
+                   target="_blank" rel="noopener"
+                   title="Open forum">
+                  <i class="fa-solid fa-hashtag" aria-hidden="true"></i>
+                  {{ p.forum_name|default('—')|e }}
+                </a>
+                <span class="forum-admin-postcard-crumb-sep" aria-hidden="true">›</span>
+                <a class="forum-admin-postcard-crumb-thread"
+                   href="{{ site_url }}/forum/{{ p.forum_slug|e('html_attr') }}/{{ p.thread_slug|e('html_attr') }}#post-{{ p.id }}"
+                   target="_blank" rel="noopener"
+                   title="Jump to post">
+                  {{ p.thread_title|default('(deleted thread)')|e }}
+                </a>
+              </p>
+
+              <div class="forum-admin-postcard-excerpt">
+                {{ p.body_html|raw }}
+              </div>
+            </div>
+
+            <div class="forum-admin-postcard-actions">
+              <a class="forum-admin-postcard-act"
+                 href="{{ site_url }}/forum/{{ p.forum_slug|e('html_attr') }}/{{ p.thread_slug|e('html_attr') }}#post-{{ p.id }}"
+                 target="_blank" rel="noopener"
+                 title="Open post in a new tab">
+                <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+                View
+              </a>
+              {% if p.is_deleted %}
+                <form method="post" action="/admin/forum/posts/{{ p.id }}/restore">
+                  <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}" />
+                  <input type="hidden" name="return_query" value="{{ forum_posts_return_query|default('{}')|e('html_attr') }}" />
+                  <button class="forum-admin-postcard-act forum-admin-postcard-act--success" type="submit">
+                    <i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Restore
+                  </button>
+                </form>
+              {% else %}
+                <form method="post" action="/admin/forum/posts/{{ p.id }}/delete"
+                      onsubmit="return confirm('Soft-delete this post? It can be restored from the Deleted tab.');">
+                  <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}" />
+                  <input type="hidden" name="return_query" value="{{ forum_posts_return_query|default('{}')|e('html_attr') }}" />
+                  <button class="forum-admin-postcard-act forum-admin-postcard-act--danger" type="submit">
+                    <i class="fa-solid fa-trash" aria-hidden="true"></i> Delete
+                  </button>
+                </form>
+              {% endif %}
+            </div>
+          </li>
+        {% endfor %}
+      </ol>
+
+      {# Numbered pagination — preserves every current filter on each page link
+         via the `query` argument. Hides itself when there's only one page. #}
+      {% include '@plugin_forum_plugin/admin/_pager.twig' with {
+        page:       forum_page|default(1),
+        pages:      forum_pages|default(1),
+        total:      forum_total|default(0),
+        route_name: 'plugin.forum.admin.posts',
+        query:      _qs|merge({ status: _status }),
+        label_one:  'post',
+        label_many: 'posts'
+      } only %}
+    {% endif %}
+  </section>
+{% endblock %}
+
+{% block admin_scripts %}
+  {% if forum_posts is defined and forum_posts|length > 0 and forum_posts_has_deletable|default(false) %}
+    <script>
+      (function () {
+        var master = document.getElementById('forum-posts-select-all');
+        var list = document.getElementById('forum-admin-post-list');
+        if (!master || !list) return;
+        function boxes() {
+          return list.querySelectorAll('input.forum-post-bulk-cb');
+        }
+        function syncMaster() {
+          var b = boxes();
+          var total = b.length;
+          var checked = 0;
+          for (var i = 0; i < b.length; i++) if (b[i].checked) checked++;
+          master.indeterminate = checked > 0 && checked < total;
+          master.checked = total > 0 && checked === total;
+        }
+        master.addEventListener('change', function () {
+          var on = master.checked;
+          boxes().forEach(function (el) { el.checked = on; });
+          master.indeterminate = false;
+        });
+        list.addEventListener('change', function (e) {
+          if (e.target && e.target.classList && e.target.classList.contains('forum-post-bulk-cb')) syncMaster();
+        });
+        syncMaster();
+      })();
+    </script>
+  {% endif %}
+{% endblock %}

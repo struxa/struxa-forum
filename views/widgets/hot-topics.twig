@@ -1,0 +1,66 @@
+{# Latest forum discussions — homepage sidebar card. #}
+{% set _latest = forum_latest_threads(4) %}
+
+<aside class="card hot-topics" aria-label="Latest forum discussions">
+  <div class="card-head hot-topics-head">
+    <h3>
+      <span class="hot-topics-flame" aria-hidden="true">💬</span>
+      Latest discussions
+    </h3>
+    <a class="link" href="/forum">All discussions →</a>
+  </div>
+
+  {% if _latest|length == 0 %}
+    <p class="hot-topics-empty">
+      <span aria-hidden="true">💤</span>
+      No discussions yet —
+      <a href="/forum">start a thread</a>.
+    </p>
+  {% else %}
+    <ol class="hot-topics-list">
+      {% for h in _latest %}
+        {% set _replies = h.replies_count|default(0) %}
+        {% set _heat_tier = _replies >= 20 ? 'lava' : (_replies >= 5 ? 'hot' : 'warm') %}
+        <li class="hot-topic hot-topic--{{ _heat_tier }}">
+          <a class="hot-topic-link" href="/forum/{{ h.forum_slug|e('html_attr') }}/{{ h.slug|e('html_attr') }}">
+            <span class="hot-topic-rank">{{ loop.index }}</span>
+            <div class="hot-topic-body">
+              <p class="hot-topic-forum">
+                <i class="fa-solid fa-comments" aria-hidden="true"></i> {{ h.forum_name|e }}
+              </p>
+              <p class="hot-topic-title">{{ h.title|e }}</p>
+              <p class="hot-topic-meta">
+                {% if h.last_poster %}
+                  <img class="hot-topic-avatar" src="{{ h.last_poster.avatar|e('html_attr') }}" alt="" width="20" height="20" loading="lazy" />
+                  <span><strong>{{ h.last_poster.display_name|e }}</strong></span>
+                  <span class="hot-topic-dot">·</span>
+                {% endif %}
+                <span>{{ forum_relative_time(h.last_post_at ?? h.created_at) }}</span>
+              </p>
+            </div>
+            <div class="hot-topic-stats" aria-label="Thread stats">
+              {% if _replies > 0 %}
+                <span class="hot-topic-stat hot-topic-stat--posts" title="Replies">
+                  <i class="fa-solid fa-reply" aria-hidden="true"></i>
+                  <strong>{{ _replies }}</strong>
+                </span>
+              {% else %}
+                <span class="hot-topic-stat hot-topic-stat--new" title="New thread">NEW</span>
+              {% endif %}
+              {% if h.likes_count|default(0) > 0 %}
+                <span class="hot-topic-stat hot-topic-stat--likes" title="Likes">
+                  <i class="fa-solid fa-heart" aria-hidden="true"></i>
+                  <strong>{{ h.likes_count }}</strong>
+                </span>
+              {% endif %}
+            </div>
+          </a>
+        </li>
+      {% endfor %}
+    </ol>
+
+    <a class="hot-topics-cta" href="/forum">
+      Join the conversation <span aria-hidden="true">→</span>
+    </a>
+  {% endif %}
+</aside>

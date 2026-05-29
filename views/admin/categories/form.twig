@@ -1,0 +1,57 @@
+{% extends 'admin/base.twig' %}
+
+{% block admin_title %}{{ is_new ? 'New' : 'Edit' }} forum category{% endblock %}
+
+{% block admin_hero_title %}
+  <h1 class="admin-hero-title">{{ is_new ? 'New category' : 'Edit category' }}</h1>
+{% endblock %}
+
+{% block admin_hero_sub %}
+  <p class="admin-hero-sub">Categories are top-level groups. Each forum belongs to one.</p>
+{% endblock %}
+
+{% block admin_hero_actions %}
+  <a class="admin-btn-secondary" href="{{ url_for('plugin.forum.admin.categories') }}">Cancel</a>
+{% endblock %}
+
+{% block admin_content %}
+  <section class="admin-section">
+    <form class="admin-form" method="post"
+          action="{{ is_new ? url_for('plugin.forum.admin.categories.new') : url_for('plugin.forum.admin.categories.edit', { id: category.id }) }}">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}" />
+
+      <div class="admin-field">
+        <label class="admin-label" for="cat-name">Name *</label>
+        <input class="admin-input" id="cat-name" name="name" type="text" required maxlength="160"
+               value="{{ category.name|e('html_attr') }}" placeholder="e.g. Community" />
+      </div>
+
+      <div class="admin-field">
+        <label class="admin-label" for="cat-slug">Slug</label>
+        <input class="admin-input" id="cat-slug" name="slug" type="text" maxlength="160"
+               value="{{ category.slug|e('html_attr') }}" placeholder="auto-generated from name if empty" />
+        <p class="admin-hint">Lowercase, dash-separated. Used only inside the admin (forum URLs don't include the category slug).</p>
+      </div>
+
+      <div class="admin-field">
+        <label class="admin-label" for="cat-desc">Description</label>
+        <textarea class="admin-input" id="cat-desc" name="description" rows="3" maxlength="2000"
+                  placeholder="Optional one-line description shown above the forum list.">{{ category.description|default('')|e }}</textarea>
+      </div>
+
+      <div class="admin-field admin-field--inline">
+        <label class="admin-label" for="cat-sort">Sort order</label>
+        <input class="admin-input" id="cat-sort" name="sort_order" type="number" min="0" value="{{ category.sort_order|default(10) }}" style="max-width:120px;" />
+
+        <label class="admin-label" style="margin-left:18px;">
+          <input type="checkbox" name="is_hidden" value="1" {{ category.is_hidden ? 'checked' : '' }} /> Hide from public
+        </label>
+      </div>
+
+      <div class="admin-field admin-field--inline" style="align-self:end;">
+        <button class="admin-btn-primary" type="submit">{{ is_new ? 'Create category' : 'Save changes' }}</button>
+        <a class="admin-btn-secondary" href="{{ url_for('plugin.forum.admin.categories') }}">Cancel</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}

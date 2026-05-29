@@ -1,0 +1,29 @@
+{# Stats strip — shown under the forum hero and (if you want) elsewhere
+   on the site. Pulls a snapshot through the plugin's StatsService. #}
+{% set _s = forum_stats|default(forum_stats()) %}
+<aside class="forum-stats" aria-label="Forum statistics">
+  <div class="forum-stats-tile">
+    <p class="forum-stats-label"><i class="fa-solid fa-users" aria-hidden="true"></i> Members</p>
+    <p class="forum-stats-value">{{ _s.members|number_format }}</p>
+  </div>
+  <div class="forum-stats-tile">
+    <p class="forum-stats-label"><i class="fa-solid fa-message" aria-hidden="true"></i> Threads</p>
+    <p class="forum-stats-value">{{ _s.threads|number_format }}</p>
+  </div>
+  <div class="forum-stats-tile">
+    <p class="forum-stats-label"><i class="fa-solid fa-comments" aria-hidden="true"></i> Posts</p>
+    <p class="forum-stats-value">{{ _s.posts|number_format }}</p>
+  </div>
+  <div class="forum-stats-tile forum-stats-tile--live">
+    <p class="forum-stats-label">
+      <span class="forum-stats-pulse" aria-hidden="true"></span> Online now
+    </p>
+    <p class="forum-stats-value">{{ _s.online_now|number_format }}</p>
+  </div>
+  {% if _s.newest_member %}
+    <div class="forum-stats-tile forum-stats-newest">
+      <p class="forum-stats-label"><i class="fa-solid fa-user-plus" aria-hidden="true"></i> Newest member</p>
+      <p class="forum-stats-value forum-stats-value--small">{{ _s.newest_member.display_name|e }}</p>
+    </div>
+  {% endif %}
+</aside>

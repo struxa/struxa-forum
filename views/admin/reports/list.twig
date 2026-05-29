@@ -1,0 +1,282 @@
+{% extends 'admin/base.twig' %}
+
+{% block admin_title %}Reports · moderation queue{% endblock %}
+
+{# Forum-admin CSS lives in the plugin (cache-busted via forum_asset()) so a
+   CMS self-update can't clobber the queue's styling. #}
+{% block admin_head %}
+  <link rel="stylesheet" href="{{ forum_asset('css/forum-admin.css') }}" />
+{% endblock %}
+
+{% block admin_hero_title %}
+  <h1 class="admin-hero-title">Reports</h1>
+{% endblock %}
+
+{% block admin_hero_sub %}
+  <p class="admin-hero-sub">
+    {% if forum_total is defined %}
+      {{ forum_total|number_format }} report{{ forum_total == 1 ? '' : 's' }} match —
+      <strong>Resolve</strong> when the post needed action, <strong>Dismiss</strong> when the report itself was bogus.
+    {% else %}
+      Posts flagged by members. Resolve = problem confirmed and acted on. Dismiss = no action needed.
+    {% endif %}
+  </p>
+{% endblock %}
+
+{% block admin_hero_actions %}
+  <a class="admin-btn-primary" href="{{ url_for('plugin.forum.admin.posts') }}">
+    <i class="fa-solid fa-message" aria-hidden="true"></i> Posts
+  </a>
+  <a class="admin-btn-secondary" href="{{ url_for('plugin.forum.admin.dashboard') }}">
+    <i class="fa-solid fa-gauge-high" aria-hidden="true"></i> Dashboard
+  </a>
+{% endblock %}
+
+{% block admin_content %}
+  {% set _filter = forum_report_filter|default({ status: 'open', reason: '', q: '' }) %}
+  {% set _status = _filter.status %}
+  {% set _reason = _filter.reason %}
+  {% set _counts = forum_report_counts|default({ open: 0, resolved: 0, dismissed: 0 }) %}
+  {% set _all    = _counts.open + _counts.resolved + _counts.dismissed %}
+
+  {# ---------- KPI tiles ----------
+     Each is a `?status=…` link, preserving the user's q/reason filters so a
+     mod can scope a search across statuses without losing it. #}
+  <section class="admin-section">
+    {% set _tiles = [
+      { id: 'open',      label: 'Open',      n: _counts.open,      icon: 'fa-flag',          cls: 'open' },
+      { id: 'resolved',  label: 'Resolved',  n: _counts.resolved,  icon: 'fa-circle-check',  cls: 'resolved' },
+      { id: 'dismissed', label: 'Dismissed', n: _counts.dismissed, icon: 'fa-circle-xmark',  cls: 'dismissed' },
+      { id: 'all',       label: 'All',       n: _all,              icon: 'fa-layer-group',   cls: 'all' }
+    ] %}
+    <div class="forum-admin-report-summary">
+      {% for t in _tiles %}
+        {% set _active = _status == t.id %}
+        <a class="forum-admin-report-tile forum-admin-report-tile--{{ t.cls }} {{ _active ? 'forum-admin-report-tile--active' : '' }}"
+           href="{{ url_for('plugin.forum.admin.reports') }}?{{ { status: t.id, reason: _reason, q: _filter.q }|url_encode }}">
+          <span class="forum-admin-report-tile-icon" aria-hidden="true">
+            <i class="fa-solid {{ t.icon }}"></i>
+          </span>
+          <span class="forum-admin-report-tile-body">
+            <span class="forum-admin-report-tile-label">{{ t.label }}</span>
+            <span class="forum-admin-report-tile-value">{{ t.n|number_format }}</span>
+          </span>
+        </a>
+      {% endfor %}
+    </div>
+  </section>
+
+  {# ---------- Filter bar ----------
+     Same chassis as /admin/forum/posts (`.forum-admin-postbar`). The status
+     stays in a hidden input so the KPI tiles remain the canonical way to
+     change status — the dropdown would compete with them for the same job. #}
+  <section class="admin-section">
+    <form class="forum-admin-postbar" method="get" action="{{ url_for('plugin.forum.admin.reports') }}">
+      <div class="forum-admin-postbar-search">
+        <label class="admin-label" for="rep-q">Search</label>
+        <input class="admin-input" id="rep-q" name="q" type="search"
+               value="{{ _filter.q|e('html_attr') }}"
+               placeholder="Thread title or reporter note…" />
+      </div>
+
+      <div>
+        <label class="admin-label" for="rep-reason">Reason</label>
+        <select class="admin-input" id="rep-reason" name="reason">
+          <option value="">Any reason</option>
+          {% for key, label in forum_report_reasons|default({}) %}
+            <option value="{{ key|e('html_attr') }}" {{ _reason == key ? 'selected' : '' }}>
+              {{ label|e }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <input type="hidden" name="status" value="{{ _status|e('html_attr') }}" />
+
+      <div class="forum-admin-postbar-actions">
+        <button class="admin-btn-primary" type="submit">
+          <i class="fa-solid fa-filter" aria-hidden="true"></i> Filter
+        </button>
+        <a class="admin-btn-secondary" href="{{ url_for('plugin.forum.admin.reports') }}?status={{ _status|e('url') }}">Reset</a>
+      </div>
+    </form>
+  </section>
+
+  {# ---------- Queue list ---------- #}
+  <section class="admin-section">
+    {% if forum_reports|length == 0 %}
+      <div class="forum-admin-postempty">
+        <i class="fa-regular fa-folder-open" aria-hidden="true"></i>
+        <p style="margin: 0;">
+          {% if _status == 'open' %}
+            Nothing in the queue — quiet day.
+          {% else %}
+            No reports match this filter.
+          {% endif %}
+          {% if _filter.q or _reason %}
+            Try <a class="admin-link" href="{{ url_for('plugin.forum.admin.reports') }}?status={{ _status|e('url') }}">resetting</a>.
+          {% endif %}
+        </p>
+      </div>
+    {% else %}
+      <ol class="forum-admin-postlist" style="list-style:none;padding:0;margin:0;">
+        {% for r in forum_reports %}
+          {% set _reporter = users_by_id[r.reporter_user_id]|default(null) %}
+          {% set _author   = r.post_author_id ? users_by_id[r.post_author_id]|default(null) : null %}
+          {% set _resolver = r.resolved_by_user_id ? users_by_id[r.resolved_by_user_id]|default(null) : null %}
+          {% set _initial  = _reporter ? _reporter.display_name|slice(0,1)|upper : '?' %}
+
+          <li class="forum-admin-postcard forum-admin-postcard--report forum-admin-postcard--report-{{ r.status|e('html_attr') }}{% if r.is_first_post %} forum-admin-postcard--op{% endif %}">
+            <div class="forum-admin-postcard-avatar" aria-hidden="true">
+              {% if _reporter and _reporter.avatar is defined and _reporter.avatar %}
+                <img src="{{ _reporter.avatar|e('html_attr') }}" alt="" loading="lazy" />
+              {% else %}
+                {{ _initial }}
+              {% endif %}
+            </div>
+
+            <div class="forum-admin-postcard-body">
+              {# Head row — reporter handle + relative filing time + status pill. #}
+              <div class="forum-admin-postcard-head">
+                <span class="forum-admin-postcard-reporter">
+                  <i class="fa-solid fa-flag" aria-hidden="true"></i>
+                  {% if _reporter %}
+                    <strong><a href="/forum/user/{{ _reporter.id }}" target="_blank" rel="noopener">{{ _reporter.display_name|e }}</a></strong>
+                  {% else %}
+                    <strong>Unknown reporter</strong>
+                  {% endif %}
+                  reported a post
+                  {% if _author %}
+                    by <strong>{{ _author.display_name|e }}</strong>
+                  {% endif %}
+                </span>
+                <span class="forum-admin-postcard-meta">
+                  <i class="fa-regular fa-clock" aria-hidden="true"></i>
+                  {{ forum_relative_time(r.created_at) }}
+                </span>
+                <span class="forum-admin-postcard-badge forum-admin-postcard-badge--status-{{ r.status|e('html_attr') }}">
+                  <i class="fa-solid {{ {open: 'fa-flag', resolved: 'fa-circle-check', dismissed: 'fa-circle-xmark'}[r.status]|default('fa-flag') }}" aria-hidden="true"></i>
+                  {{ r.status|capitalize|e }}
+                </span>
+                {% if r.is_first_post %}
+                  <span class="forum-admin-postcard-badge forum-admin-postcard-badge--op" title="First post of the thread">
+                    <i class="fa-solid fa-flag" aria-hidden="true"></i> OP
+                  </span>
+                {% endif %}
+              </div>
+
+              {# Thread-context sub-row — forum › thread, both clickable. #}
+              <p class="forum-admin-postcard-crumb">
+                <a class="forum-admin-postcard-crumb-forum"
+                   href="{{ site_url }}/forum/{{ r.forum_slug|e('html_attr') }}"
+                   target="_blank" rel="noopener"
+                   title="Open forum">
+                  <i class="fa-solid fa-hashtag" aria-hidden="true"></i>
+                  {{ r.forum_name|default('—')|e }}
+                </a>
+                <span class="forum-admin-postcard-crumb-sep" aria-hidden="true">›</span>
+                <a class="forum-admin-postcard-crumb-thread"
+                   href="{{ site_url }}/forum/{{ r.forum_slug|e('html_attr') }}/{{ r.thread_slug|e('html_attr') }}#post-{{ r.post_id }}"
+                   target="_blank" rel="noopener"
+                   title="Jump to the reported post">
+                  {{ r.thread_title|default('(deleted thread)')|e }}
+                </a>
+              </p>
+
+              {# Reason pill + optional note — the report's *primary* signal,
+                 so it sits above the post excerpt rather than below. #}
+              <div class="forum-admin-postcard-reason">
+                <span class="forum-admin-postcard-reason-pill">
+                  <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+                  {{ forum_report_reasons[r.reason_key]|default(r.reason_key|e) }}
+                </span>
+                {% if r.reason_text %}
+                  <blockquote class="forum-admin-postcard-reason-note">
+                    <i class="fa-solid fa-quote-left" aria-hidden="true"></i>
+                    {{ r.reason_text|e }}
+                  </blockquote>
+                {% endif %}
+              </div>
+
+              {# Reported post excerpt — markdown bodies are stored as-is so
+                 we strip the worst of it via forum_excerpt() for safety, then
+                 hard-clip with a gradient fade in CSS so very long posts can't
+                 dominate the queue. #}
+              {% if r.post_body %}
+                <p class="forum-admin-postcard-excerpt-label">
+                  <i class="fa-regular fa-message" aria-hidden="true"></i>
+                  Reported post excerpt
+                </p>
+                <div class="forum-admin-postcard-excerpt">
+                  {{ forum_excerpt(r.post_body, 280)|e }}
+                </div>
+              {% endif %}
+
+              {# Resolution metadata — only shown for non-open reports. #}
+              {% if r.status != 'open' and (r.resolved_at or _resolver or r.resolution_note) %}
+                <div class="forum-admin-postcard-resolution {{ r.status == 'dismissed' ? 'forum-admin-postcard-resolution--dismissed' : '' }}">
+                  <i class="fa-solid {{ r.status == 'dismissed' ? 'fa-circle-xmark' : 'fa-circle-check' }}" aria-hidden="true"></i>
+                  <div>
+                    <strong>{{ r.status|capitalize|e }}</strong>
+                    {% if r.resolved_at %} {{ forum_relative_time(r.resolved_at) }}{% endif %}
+                    {% if _resolver %} by <strong>{{ _resolver.display_name|e }}</strong>{% endif %}
+                    {% if r.resolution_note %}
+                      <span class="forum-admin-postcard-resolution-note">“{{ r.resolution_note|e }}”</span>
+                    {% endif %}
+                  </div>
+                </div>
+              {% endif %}
+            </div>
+
+            {# Action column — open: Resolve + Dismiss; closed: Reopen + View. #}
+            <div class="forum-admin-postcard-actions">
+              <a class="forum-admin-postcard-act"
+                 href="{{ site_url }}/forum/{{ r.forum_slug|e('html_attr') }}/{{ r.thread_slug|e('html_attr') }}#post-{{ r.post_id }}"
+                 target="_blank" rel="noopener"
+                 title="Open reported post in a new tab">
+                <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+                View
+              </a>
+
+              {% if r.status == 'open' %}
+                <form method="post" action="/admin/forum/reports/{{ r.id }}/resolve">
+                  <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}" />
+                  <input type="hidden" name="status" value="resolved" />
+                  <button class="forum-admin-postcard-act forum-admin-postcard-act--success" type="submit">
+                    <i class="fa-solid fa-circle-check" aria-hidden="true"></i> Resolve
+                  </button>
+                </form>
+                <form method="post" action="/admin/forum/reports/{{ r.id }}/resolve">
+                  <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}" />
+                  <input type="hidden" name="status" value="dismissed" />
+                  <button class="forum-admin-postcard-act forum-admin-postcard-act--dismiss" type="submit">
+                    <i class="fa-solid fa-circle-xmark" aria-hidden="true"></i> Dismiss
+                  </button>
+                </form>
+              {% else %}
+                <form method="post" action="/admin/forum/reports/{{ r.id }}/resolve">
+                  <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}" />
+                  <input type="hidden" name="status" value="open" />
+                  <button class="forum-admin-postcard-act" type="submit">
+                    <i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Reopen
+                  </button>
+                </form>
+              {% endif %}
+            </div>
+          </li>
+        {% endfor %}
+      </ol>
+
+      {# Numbered pagination — preserves status / reason / q on every link. #}
+      {% include '@plugin_forum_plugin/admin/_pager.twig' with {
+        page:       forum_page|default(1),
+        pages:      forum_pages|default(1),
+        total:      forum_total|default(0),
+        route_name: 'plugin.forum.admin.reports',
+        query:      { status: _status, reason: _reason, q: _filter.q },
+        label_one:  'report',
+        label_many: 'reports'
+      } only %}
+    {% endif %}
+  </section>
+{% endblock %}

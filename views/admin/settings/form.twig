@@ -1,0 +1,75 @@
+{% extends 'admin/base.twig' %}
+
+{% block admin_title %}Forum settings{% endblock %}
+
+{% block admin_hero_title %}
+  <h1 class="admin-hero-title">Forum settings</h1>
+{% endblock %}
+
+{% block admin_hero_sub %}
+  <p class="admin-hero-sub">Page sizes, edit window, validation thresholds. All values are integers.</p>
+{% endblock %}
+
+{% block admin_hero_actions %}
+  <a class="admin-btn-secondary" href="{{ url_for('plugin.forum.admin.dashboard') }}">Back to dashboard</a>
+{% endblock %}
+
+{% block admin_content %}
+  <section class="admin-section">
+    <form class="admin-form" method="post" action="{{ url_for('plugin.forum.admin.settings') }}">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}" />
+
+      <div class="admin-field admin-field--inline">
+        <div style="flex:0 1 240px;">
+          <label class="admin-label" for="s-tpp">Threads per page</label>
+          <input class="admin-input" id="s-tpp" name="threads_per_page" type="number" min="1" max="200"
+                 value="{{ forum_settings.threads_per_page|default(20) }}" />
+        </div>
+        <div style="flex:0 1 240px;">
+          <label class="admin-label" for="s-ppp">Posts per page</label>
+          <input class="admin-input" id="s-ppp" name="posts_per_page" type="number" min="1" max="200"
+                 value="{{ forum_settings.posts_per_page|default(15) }}" />
+        </div>
+      </div>
+
+      <div class="admin-field admin-field--inline">
+        <div style="flex:0 1 240px;">
+          <label class="admin-label" for="s-edit">Edit window (minutes)</label>
+          <input class="admin-input" id="s-edit" name="edit_window_minutes" type="number" min="0" max="1440"
+                 value="{{ forum_settings.edit_window_minutes|default(15) }}" />
+          <p class="admin-hint">Plain users can edit their own posts for this long after posting. Moderators always can.</p>
+        </div>
+        <div style="flex:0 1 240px;">
+          <label class="admin-label" for="s-online">Online-now window (minutes)</label>
+          <input class="admin-input" id="s-online" name="online_now_window_minutes" type="number" min="1" max="60"
+                 value="{{ forum_settings.online_now_window_minutes|default(5) }}" />
+          <p class="admin-hint">A user is "online" if seen in the last N minutes.</p>
+        </div>
+      </div>
+
+      <div class="admin-field admin-field--inline">
+        <div style="flex:0 1 240px;">
+          <label class="admin-label" for="s-minpost">Minimum post length (chars)</label>
+          <input class="admin-input" id="s-minpost" name="min_post_length" type="number" min="1" max="500"
+                 value="{{ forum_settings.min_post_length|default(4) }}" />
+          <p class="admin-hint">Characters. Cheap floor against one-letter spam.</p>
+        </div>
+        <div style="flex:0 1 240px;">
+          <label class="admin-label" for="s-mintitle">Minimum thread title length</label>
+          <input class="admin-input" id="s-mintitle" name="min_thread_title_length" type="number" min="1" max="200"
+                 value="{{ forum_settings.min_thread_title_length|default(4) }}" />
+        </div>
+        <div style="flex:0 1 240px;">
+          <label class="admin-label" for="s-minwords">Minimum post words</label>
+          <input class="admin-input" id="s-minwords" name="min_post_words" type="number" min="0" max="500"
+                 value="{{ forum_settings.min_post_words|default(15) }}" />
+          <p class="admin-hint">Applies to thread bodies, replies and edits. Set to 0 to disable.</p>
+        </div>
+      </div>
+
+      <div class="admin-field admin-field--inline" style="align-self:end;">
+        <button class="admin-btn-primary" type="submit">Save settings</button>
+      </div>
+    </form>
+  </section>
+{% endblock %}

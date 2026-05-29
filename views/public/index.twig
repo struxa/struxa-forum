@@ -1,0 +1,170 @@
+{% extends 'layouts/base.twig' %}
+
+{% set _index_url = site_url ~ '/forum' %}
+{% set _seo_desc  = meta_description|default('Community discussions for Avios members — trip reports, redemption tips and travel news.') %}
+
+{% block title %}{{ page_title|default('Forum') }} — {{ settings.site_name|default('FL350') }}{% endblock %}
+{% block meta_description %}{{ _seo_desc }}{% endblock %}
+{% block canonical_href %}{{ _index_url|e('html_attr') }}{% endblock %}
+{% block og_title %}{{ settings.site_name|default('FL350') }} Forum{% endblock %}
+{% block og_description %}{{ _seo_desc }}{% endblock %}
+{% block twitter_title %}{{ settings.site_name|default('FL350') }} Forum{% endblock %}
+{% block twitter_description %}{{ _seo_desc }}{% endblock %}
+
+{% block meta_extra %}
+  {{ parent() }}
+  {% include '@plugin_forum_plugin/public/_seo_head.twig' with {
+    canonical:      _index_url,
+    og_title:       settings.site_name|default('FL350') ~ ' Forum',
+    og_description: _seo_desc,
+    jsonld: [
+      {
+        '@context': 'https://schema.org',
+        '@type':    'BreadcrumbList',
+        'itemListElement': [
+          { '@type': 'ListItem', position: 1, name: 'Home',  item: site_url ~ '/' },
+          { '@type': 'ListItem', position: 2, name: 'Forum', item: _index_url }
+        ]
+      },
+      {
+        '@context':    'https://schema.org',
+        '@type':       'WebSite',
+        'name':        settings.site_name|default('FL350') ~ ' Forum',
+        'url':         _index_url,
+        'description': _seo_desc,
+        'publisher': {
+          '@type': 'Organization',
+          'name':  settings.site_name|default('FL350'),
+          'logo':  { '@type': 'ImageObject', 'url': site_url ~ theme_asset('images/fl350-logo.png') }
+        },
+        'potentialAction': {
+          '@type':       'SearchAction',
+          'target':      { '@type': 'EntryPoint', 'urlTemplate': site_url ~ '/forum/search?q={search_term_string}' },
+          'query-input': 'required name=search_term_string'
+        }
+      }
+    ]
+  } only %}
+{% endblock %}
+
+{% block head_extra %}
+  <link rel="stylesheet" href="{{ forum_asset('css/forum.css') }}" />
+{% endblock %}
+
+{% block body %}
+  <main class="forum-page" id="content">
+
+    <!-- Hero -->
+    <header class="forum-hero">
+      <div class="forum-shell">
+        <p class="forum-eyebrow forum-eyebrow--live">
+          <span class="forum-eyebrow-dot" aria-hidden="true"></span>
+          <span>Community · live now</span>
+        </p>
+        <h1 class="forum-hero-title">The Avios <span class="forum-hero-title-accent">Forum</span></h1>
+        <p class="forum-hero-sub">Trip reports, redemption sweet spots and proper Avios chat — from people who actually fly. Free to join, sign in to post.</p>
+
+        <form method="get" action="/forum/search" class="forum-hero-search forum-hero-search--wide" role="search">
+          <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+          <input type="search" name="q" placeholder="Search threads and posts…" />
+          <button type="submit" class="forum-btn forum-btn--primary forum-btn--small">Search</button>
+        </form>
+
+        {% include '@plugin_forum_plugin/widgets/stats.twig' %}
+      </div>
+    </header>
+
+    <div class="forum-shell forum-shell--wide forum-layout">
+
+      <div class="forum-main">
+
+        {% include '@plugin_forum_plugin/partials/_flash.twig' ignore missing %}
+
+        {% if forum_grouped|length == 0 %}
+          <section class="forum-card forum-card--empty">
+            <h2>No forums yet</h2>
+            <p>An admin can add forums from <code>/admin/forum</code>.</p>
+          </section>
+        {% endif %}
+
+        {% for cat in forum_grouped %}
+          <section class="forum-category">
+            <header class="forum-category-head">
+              <h2>{{ cat.category.name|e }}</h2>
+              <span class="forum-cat-meta">{{ cat.forums|length }} forum{{ cat.forums|length == 1 ? '' : 's' }}</span>
+            </header>
+
+            <ul class="forum-list">
+              {% for f in cat.forums %}
+                {# Each forum's accent tint derives from its sort_order so
+                   adjacent rows look distinct without per-forum config. #}
+                {% set _tint = ['#2563eb','#7c3aed','#0891b2','#0d9488','#db2777','#ea580c','#65a30d','#0ea5e9'] %}
+                {% set _tone = _tint[(loop.index0) % (_tint|length)] %}
+                <li class="forum-row{{ f.is_locked ? ' is-locked' : '' }}" style="--row-tone: {{ _tone|e('html_attr') }};">
+                  <div class="forum-row-icon{{ f.icon_image ? ' forum-row-icon--image' : '' }}">
+                    {% if f.icon_image %}
+                      <img src="{{ f.icon_image|e('html_attr') }}" alt="{{ f.name|e('html_attr') }} logo" loading="lazy" />
+                    {% else %}
+                      <i class="fa-solid fa-{{ f.icon|default('comments')|e('html_attr') }}" aria-hidden="true"></i>
+                    {% endif %}
+                  </div>
+                  <div class="forum-row-body">
+                    <a class="forum-row-title" href="/forum/{{ f.slug|e('html_attr') }}">
+                      {{ f.name|e }}
+                      {% if f.is_locked %}<i class="fa-solid fa-lock forum-row-lock" aria-hidden="true" title="Locked"></i>{% endif %}
+                    </a>
+                    {% if f.description %}<p class="forum-row-desc">{{ f.description|e }}</p>{% endif %}
+                    {% if f.subs|length > 0 %}
+                      <p class="forum-row-subs">
+                        Sub-forums:
+                        {% for s in f.subs %}
+                          <a href="/forum/{{ s.slug|e('html_attr') }}">{{ s.name|e }}</a>{{ not loop.last ? ',' : '' }}
+                        {% endfor %}
+                      </p>
+                    {% endif %}
+                  </div>
+                  <div class="forum-row-stats">
+                    <span class="forum-stat"><strong>{{ f.threads_count|number_format }}</strong><span>threads</span></span>
+                    <span class="forum-stat"><strong>{{ f.posts_count|number_format }}</strong><span>posts</span></span>
+                  </div>
+                  <div class="forum-row-last">
+                    {% if f.last_post_at %}
+                      {% set lp = f.last_poster_id ? forum_users_by_id[f.last_poster_id]|default(null) : null %}
+                      {% if lp %}
+                        <img class="forum-row-last-avatar" src="{{ lp.avatar|e('html_attr') }}" alt="" loading="lazy" width="32" height="32" />
+                      {% endif %}
+                      <div class="forum-row-last-body">
+                        <a class="forum-row-last-title" href="/forum/{{ f.slug|e('html_attr') }}/{{ (f.last_thread_slug|default(''))|e('html_attr') }}">{{ (f.last_thread_title|default('Latest reply'))|e }}</a>
+                        <p class="forum-row-last-meta">
+                          {% if lp %}<strong>{{ lp.display_name|e }}</strong>{% endif %}
+                          <span>· {{ forum_relative_time(f.last_post_at) }}</span>
+                        </p>
+                      </div>
+                    {% else %}
+                      <p class="forum-row-last-meta forum-row-last-meta--empty">No posts yet</p>
+                    {% endif %}
+                  </div>
+                </li>
+              {% else %}
+                <li class="forum-row forum-row--empty">No forums in this category yet.</li>
+              {% endfor %}
+            </ul>
+          </section>
+        {% endfor %}
+
+      </div>
+
+      {% include '@plugin_forum_plugin/widgets/sidebar.twig' %}
+
+    </div>
+
+    {# Full-width credit cards strip, sitting beneath the forum list +
+       sidebar. The data is the same `forum_sidebar.cards` payload — we
+       just promote it to a top-level `forum_cards` for the partial. #}
+    <div class="forum-shell forum-shell--wide">
+      {% include '@plugin_forum_plugin/widgets/credit-cards-strip.twig' with {
+        forum_cards: forum_sidebar.cards|default([])
+      } only %}
+    </div>
+  </main>
+{% endblock %}

@@ -1,0 +1,175 @@
+{% extends 'layouts/base.twig' %}
+
+{% set _profile_url = site_url ~ '/forum/user/' ~ forum_user.id %}
+{% set _seo_title   = forum_user.display_name ~ ' — Forum profile' %}
+{% set _seo_desc    = forum_user.display_name ~ ' on FL350 — ' ~ (forum_user.posts|default(0)|number_format) ~ ' posts, member since ' ~ (forum_user.joined_at ? forum_user.joined_at|date('F Y') : 'recently') ~ '.' %}
+
+{% block title %}{{ _seo_title|e }} — {{ settings.site_name|default('FL350') }}{% endblock %}
+{% block meta_description %}{{ _seo_desc|e }}{% endblock %}
+{% block canonical_href %}{{ _profile_url|e('html_attr') }}{% endblock %}
+{% block og_type %}profile{% endblock %}
+{% block og_title %}{{ _seo_title|e }}{% endblock %}
+{% block og_description %}{{ _seo_desc|e }}{% endblock %}
+{% block twitter_title %}{{ _seo_title|e }}{% endblock %}
+{% block twitter_description %}{{ _seo_desc|e }}{% endblock %}
+
+{% block meta_extra %}
+  {{ parent() }}
+  {% include '@plugin_forum_plugin/public/_seo_head.twig' with {
+    canonical:      _profile_url,
+    og_title:       _seo_title,
+    og_description: _seo_desc,
+    og_image:       forum_user.avatar|default(null) ?: (site_url ~ theme_asset('images/fl350-logo.png')),
+    jsonld: [
+      {
+        '@context': 'https://schema.org',
+        '@type':    'BreadcrumbList',
+        'itemListElement': [
+          { '@type': 'ListItem', position: 1, name: 'Home',                  item: site_url ~ '/' },
+          { '@type': 'ListItem', position: 2, name: 'Forum',                 item: site_url ~ '/forum' },
+          { '@type': 'ListItem', position: 3, name: forum_user.display_name, item: _profile_url }
+        ]
+      },
+      {
+        '@context': 'https://schema.org',
+        '@type':    'ProfilePage',
+        'name':     _seo_title,
+        'url':      _profile_url,
+        'mainEntity': {
+          '@type':       'Person',
+          'name':        forum_user.display_name,
+          'url':         _profile_url,
+          'image':       forum_user.avatar|default(null),
+          'description': forum_user_rank_struct.label|default('Community member')
+        }
+      }
+    ]
+  } only %}
+{% endblock %}
+
+{% block head_extra %}
+  <link rel="stylesheet" href="{{ forum_asset('css/forum.css') }}" />
+{% endblock %}
+
+{% block body %}
+  <main class="forum-page" id="content">
+
+    <header class="forum-hero forum-hero--narrow">
+      <div class="forum-shell">
+        <nav class="forum-crumbs">
+          <a href="/forum">Forum</a>
+          <span aria-hidden="true">/</span>
+          <span>Profile</span>
+        </nav>
+
+        <div class="forum-profile-head">
+          <img class="forum-profile-avatar" src="{{ forum_user.avatar|e('html_attr') }}" alt="" width="120" height="120" />
+          <div class="forum-profile-id">
+            <h1>{{ forum_user.display_name|e }}</h1>
+            <p class="forum-profile-rank" style="--rank-colour: {{ forum_user_rank_struct.colour|e('html_attr') }};">
+              <i class="fa-solid fa-shield" aria-hidden="true"></i>
+              {{ forum_user_rank_struct.label|e }}
+            </p>
+            {% if forum_user.joined_at %}
+              <p class="forum-profile-joined">Joined {{ forum_user.joined_at|date('F Y') }}</p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="forum-shell forum-shell--wide forum-layout">
+      <div class="forum-main">
+
+        {# Stats strip #}
+        <section class="forum-profile-stats">
+          <div>
+            <p class="forum-stats-label">Posts</p>
+            <p class="forum-stats-value">{{ forum_user.posts|number_format }}</p>
+          </div>
+          <div>
+            <p class="forum-stats-label">Threads started</p>
+            <p class="forum-stats-value">{{ forum_user_stats.threads_started|number_format }}</p>
+          </div>
+          <div>
+            <p class="forum-stats-label">Replies</p>
+            <p class="forum-stats-value">{{ forum_user_stats.replies_posted|number_format }}</p>
+          </div>
+          <div>
+            <p class="forum-stats-label">Likes received</p>
+            <p class="forum-stats-value">{{ forum_user_stats.likes_received|number_format }}</p>
+          </div>
+        </section>
+
+        {% if forum_user_next_rank %}
+          <section class="forum-profile-progress">
+            {% set _need = forum_user_next_rank.min_posts - forum_user.posts %}
+            <p>
+              <strong>{{ _need|number_format }}</strong> more post{{ _need == 1 ? '' : 's' }} until
+              <span style="color: {{ forum_user_next_rank.colour|e('html_attr') }}; font-weight:700;">{{ forum_user_next_rank.label|e }}</span>
+            </p>
+          </section>
+        {% endif %}
+
+        {# Tabs (anchor-based, no JS) #}
+        <div class="forum-profile-grid">
+          <section class="forum-card forum-profile-card">
+            <header class="forum-profile-card-head">
+              <h2><i class="fa-regular fa-comments" aria-hidden="true"></i> Threads started</h2>
+            </header>
+            {% if forum_user_threads|length == 0 %}
+              <p class="forum-profile-empty">{{ forum_user.display_name|e }} hasn't started any threads yet.</p>
+            {% else %}
+              <ul class="forum-profile-list">
+                {% for t in forum_user_threads %}
+                  <li>
+                    <a class="forum-profile-link" href="/forum/{{ t.forum_slug|e('html_attr') }}/{{ t.slug|e('html_attr') }}">{{ t.title|e }}</a>
+                    <p class="forum-profile-sub">
+                      in <strong>{{ t.forum_name|e }}</strong>
+                      <span class="forum-dot" aria-hidden="true">·</span>
+                      <span>{{ forum_relative_time(t.created_at) }}</span>
+                      <span class="forum-dot" aria-hidden="true">·</span>
+                      <i class="fa-regular fa-comment" aria-hidden="true"></i> {{ t.replies_count|number_format }}
+                      <span class="forum-dot" aria-hidden="true">·</span>
+                      <i class="fa-regular fa-heart" aria-hidden="true"></i> {{ t.likes_count|number_format }}
+                    </p>
+                  </li>
+                {% endfor %}
+              </ul>
+            {% endif %}
+          </section>
+
+          <section class="forum-card forum-profile-card">
+            <header class="forum-profile-card-head">
+              <h2><i class="fa-solid fa-reply" aria-hidden="true"></i> Recent replies</h2>
+            </header>
+            {% if forum_user_replies|length == 0 %}
+              <p class="forum-profile-empty">No replies yet.</p>
+            {% else %}
+              <ul class="forum-profile-list">
+                {% for p in forum_user_replies %}
+                  <li>
+                    <a class="forum-profile-link" href="/forum/{{ p.forum_slug|e('html_attr') }}/{{ p.thread_slug|e('html_attr') }}#post-{{ p.id }}">{{ p.thread_title|e }}</a>
+                    <p class="forum-profile-sub">
+                      in <strong>{{ p.forum_name|e }}</strong>
+                      <span class="forum-dot" aria-hidden="true">·</span>
+                      <span>{{ forum_relative_time(p.created_at) }}</span>
+                      {% if p.likes_count > 0 %}
+                        <span class="forum-dot" aria-hidden="true">·</span>
+                        <i class="fa-regular fa-heart" aria-hidden="true"></i> {{ p.likes_count|number_format }}
+                      {% endif %}
+                    </p>
+                    <p class="forum-profile-excerpt">{{ forum_excerpt(p.body_markdown, 160)|e }}</p>
+                  </li>
+                {% endfor %}
+              </ul>
+            {% endif %}
+          </section>
+        </div>
+
+      </div>
+
+      {% include '@plugin_forum_plugin/widgets/sidebar.twig' %}
+    </div>
+  </main>
+{% endblock %}

@@ -1,0 +1,74 @@
+{# ============================================================
+   Numbered pagination strip for forum admin pages (posts + threads).
+
+   Caller contract:
+     page          int   current page (>= 1)
+     pages         int   total page count
+     total         int   total row count
+     route_name    str   Slim route name to link to
+     query         hash  filter values to preserve on every link
+     label_one     str   "post" / "thread" / "report"     (singular)
+     label_many    str   "posts" / "threads" / "reports"  (plural)
+
+   Algorithm:
+     - Always render page 1 and the last page.
+     - Render a window of ±2 around the current page.
+     - Insert an ellipsis when there's a gap.
+     - Disable Prev / Next links at the boundaries.
+   ============================================================ #}
+{% if pages|default(1) > 1 %}
+  {% set _p     = page|default(1) %}
+  {% set _last  = pages|default(1) %}
+  {% set _qsBase = query|default({}) %}
+
+  {# Build the set of page numbers to show as numbered chips. #}
+  {% set _show = [1, _last, _p, _p - 1, _p + 1, _p - 2, _p + 2] %}
+  {# Twig has no array_unique / sort filters that are guaranteed available
+     across versions, but `sort` + the `unique` of `|merge` covers it. #}
+  {% set _pages = [] %}
+  {% for n in _show|sort %}
+    {% if n >= 1 and n <= _last and n not in _pages %}
+      {% set _pages = _pages|merge([n]) %}
+    {% endif %}
+  {% endfor %}
+
+  <nav class="forum-admin-pager" aria-label="Pagination">
+    <span class="forum-admin-pager-summary">
+      Page <strong>{{ _p }}</strong> of {{ _last }}
+      · {{ total|number_format }} {{ total == 1 ? label_one|default('row') : label_many|default('rows') }}
+    </span>
+
+    <span class="forum-admin-pager-nav">
+      <a class="forum-admin-pager-link forum-admin-pager-link--step"
+         href="{{ url_for(route_name) }}?{{ _qsBase|merge({ page: max(1, _p - 1) })|url_encode }}"
+         {% if _p <= 1 %}aria-disabled="true"{% endif %}
+         aria-label="Previous page">
+        <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
+        <span class="forum-admin-pager-step-label">Prev</span>
+      </a>
+
+      {# Numbered chips with ellipsis between gaps. #}
+      {% set _prev = 0 %}
+      {% for n in _pages %}
+        {% if _prev > 0 and n > _prev + 1 %}
+          <span class="forum-admin-pager-ellipsis" aria-hidden="true">…</span>
+        {% endif %}
+        {% if n == _p %}
+          <span class="forum-admin-pager-link forum-admin-pager-link--current" aria-current="page">{{ n }}</span>
+        {% else %}
+          <a class="forum-admin-pager-link forum-admin-pager-link--num"
+             href="{{ url_for(route_name) }}?{{ _qsBase|merge({ page: n })|url_encode }}">{{ n }}</a>
+        {% endif %}
+        {% set _prev = n %}
+      {% endfor %}
+
+      <a class="forum-admin-pager-link forum-admin-pager-link--step"
+         href="{{ url_for(route_name) }}?{{ _qsBase|merge({ page: min(_last, _p + 1) })|url_encode }}"
+         {% if _p >= _last %}aria-disabled="true"{% endif %}
+         aria-label="Next page">
+        <span class="forum-admin-pager-step-label">Next</span>
+        <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+      </a>
+    </span>
+  </nav>
+{% endif %}

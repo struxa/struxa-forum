@@ -1,0 +1,56 @@
+{% extends 'admin/base.twig' %}
+
+{% block admin_title %}Forum categories{% endblock %}
+
+{% block admin_hero_title %}
+  <h1 class="admin-hero-title">Forum categories</h1>
+{% endblock %}
+
+{% block admin_hero_sub %}
+  <p class="admin-hero-sub">Top-level groups that organise your forums. Categories with hidden forums won't show on the public index.</p>
+{% endblock %}
+
+{% block admin_hero_actions %}
+  <a class="admin-btn-primary" href="{{ url_for('plugin.forum.admin.categories.new') }}">+ New category</a>
+  <a class="admin-btn-secondary" href="{{ url_for('plugin.forum.admin.dashboard') }}">Back to dashboard</a>
+{% endblock %}
+
+{% block admin_content %}
+  <section class="admin-section">
+    <div class="admin-table-wrap" style="overflow:auto;">
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th style="width:80px;">Order</th>
+            <th>Name</th>
+            <th>Slug</th>
+            <th>Hidden</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in forum_categories %}
+            <tr>
+              <td><strong>{{ c.sort_order }}</strong></td>
+              <td>
+                <a class="admin-link" href="{{ url_for('plugin.forum.admin.categories.edit', { id: c.id }) }}">{{ c.name|e }}</a>
+                {% if c.description %}<p class="admin-hint" style="margin:4px 0 0;font-size:12px;">{{ c.description|e }}</p>{% endif %}
+              </td>
+              <td><code class="admin-inline-code">{{ c.slug|e }}</code></td>
+              <td>{{ c.is_hidden ? 'Yes' : '' }}</td>
+              <td style="white-space:nowrap;">
+                <a class="admin-link" href="{{ url_for('plugin.forum.admin.categories.edit', { id: c.id }) }}">Edit</a>
+                <form method="post" action="/admin/forum/categories/{{ c.id }}/delete" style="display:inline;" onsubmit="return confirm('Delete this category? Forums inside it must be moved or deleted first.');">
+                  <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}" />
+                  <button class="admin-link" type="submit" style="background:none;border:0;cursor:pointer;color:#dc2626;">Delete</button>
+                </form>
+              </td>
+            </tr>
+          {% else %}
+            <tr><td colspan="5" class="admin-empty">No categories yet — start by adding one.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+{% endblock %}

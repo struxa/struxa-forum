@@ -1,0 +1,103 @@
+{% extends 'layouts/base.twig' %}
+
+{% set _new_url = site_url ~ '/forum/' ~ forum.slug ~ '/new' %}
+
+{% block title %}New thread in {{ forum.name|e }} — {{ settings.site_name|default('FL350') }}{% endblock %}
+{% block meta_description %}Start a new conversation in {{ forum.name|e }}.{% endblock %}
+{% block canonical_href %}{{ _new_url|e('html_attr') }}{% endblock %}
+
+{% block meta_extra %}
+  {{ parent() }}
+  {# Forms aren't useful in search results — they only function for signed-in
+     users and there's nothing meaningfully unique here for crawlers. #}
+  {% include '@plugin_forum_plugin/public/_seo_head.twig' with {
+    canonical: _new_url,
+    robots:    'noindex,nofollow'
+  } only %}
+{% endblock %}
+
+{% block head_extra %}
+  <link rel="stylesheet" href="{{ forum_asset('css/forum.css') }}" />
+{% endblock %}
+
+{% block body %}
+  <main class="forum-page" id="content">
+
+    <header class="forum-hero forum-hero--narrow">
+      <div class="forum-shell">
+        <nav class="forum-crumbs">
+          <a href="/forum">Forum</a>
+          <span aria-hidden="true">/</span>
+          <a href="/forum/{{ forum.slug|e('html_attr') }}">{{ forum.name|e }}</a>
+          <span aria-hidden="true">/</span>
+          <span>New thread</span>
+        </nav>
+        <h1>Start a new thread</h1>
+        <p class="forum-hero-sub">Posting in <strong>{{ forum.name|e }}</strong>. Be kind — read the rules in pinned threads if this is your first time.</p>
+      </div>
+    </header>
+
+    <div class="forum-shell">
+
+      {% include '@plugin_forum_plugin/partials/_flash.twig' ignore missing %}
+
+      <form method="post" action="/forum/post/new" class="forum-card forum-new-form">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}" />
+        <input type="hidden" name="forum_id" value="{{ forum.id }}" />
+
+        <div class="forum-field">
+          <label for="nt-title" class="forum-reply-label">Thread title</label>
+          <input id="nt-title" name="title" type="text" required minlength="4" maxlength="255"
+                 value="{{ forum_form.title|default('')|e('html_attr') }}" placeholder="Concise, descriptive title — e.g. “Used 47k Avios LHR–JFK in Club World, AMA”" />
+        </div>
+
+        <div class="forum-field">
+          <label for="nt-body" class="forum-reply-label">First post</label>
+          <textarea id="nt-body" name="body" rows="10" maxlength="20000" required
+                    data-forum-wordcount="nt-wordcount"
+                    data-min-words="{{ forum_min_words|default(15) }}"
+                    placeholder="Tell us the story… Markdown is supported (**bold**, _italic_, &gt; quotes, lists, links).">{{ forum_form.body|default('')|e }}</textarea>
+
+          {% if forum_min_words|default(0) > 0 %}
+            <div class="forum-wordcount" id="nt-wordcount" data-min="{{ forum_min_words }}" aria-live="polite">
+              <span class="forum-wordcount__icon" aria-hidden="true"><i class="fa-solid fa-pen-nib"></i></span>
+              <span class="forum-wordcount__text">
+                <strong class="forum-wordcount__current">0</strong>
+                <span class="forum-wordcount__sep">/</span>
+                <strong class="forum-wordcount__min">{{ forum_min_words }}</strong>
+                <span> words minimum</span>
+              </span>
+              <span class="forum-wordcount__status" aria-hidden="true">
+                <i class="fa-solid fa-circle-exclamation forum-wordcount__icon-warn"></i>
+                <i class="fa-solid fa-circle-check forum-wordcount__icon-ok"></i>
+              </span>
+            </div>
+          {% endif %}
+
+          <p class="forum-reply-hint">Markdown supported: <code>**bold**</code>, <code>_italic_</code>, <code>&gt; quote</code>, <code>- list</code>, <code>[link](https://…)</code>, fenced ```code``` blocks. Outbound links are <code>nofollow</code>.</p>
+        </div>
+
+        <div class="forum-field">
+          <label for="nt-tags" class="forum-reply-label">Tags <span style="font-weight:500;color:#94a3b8;">(optional)</span></label>
+          <input id="nt-tags" name="tags" type="text" maxlength="240"
+                 value="{{ forum_form.tags|default('')|e('html_attr') }}"
+                 placeholder="trip-report, avios, club-world" autocomplete="off"
+                 list="nt-existing-tags" />
+          <p class="forum-reply-hint">Comma-separated. Up to 8 tags. Mix existing and new — we'll create new ones for you.</p>
+          {% if forum_existing_tags|default([])|length > 0 %}
+            <datalist id="nt-existing-tags">
+              {% for tag in forum_existing_tags %}
+                <option value="{{ tag.name|e('html_attr') }}"></option>
+              {% endfor %}
+            </datalist>
+          {% endif %}
+        </div>
+
+        <div class="forum-reply-actions">
+          <a class="forum-btn forum-btn--ghost" href="/forum/{{ forum.slug|e('html_attr') }}">Cancel</a>
+          <button class="forum-btn forum-btn--primary" type="submit">Publish thread</button>
+        </div>
+      </form>
+    </div>
+  </main>
+{% endblock %}

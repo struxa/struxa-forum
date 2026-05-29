@@ -1,0 +1,131 @@
+{% extends 'layouts/base.twig' %}
+
+{% set _search_url = site_url ~ '/forum/search' %}
+
+{% block title %}{{ page_title|default('Search the forum') }} — {{ settings.site_name|default('FL350') }}{% endblock %}
+{% block meta_description %}{{ meta_description|default('Search FL350 forum threads and posts.') }}{% endblock %}
+{% block canonical_href %}{{ _search_url|e('html_attr') }}{% endblock %}
+
+{% block meta_extra %}
+  {{ parent() }}
+  {# Search-results pages should never be in Google's index. Even empty
+     search routes can rank for spam terms and create infinite duplicate
+     content via the `?q=` parameter. follow=yes so PageRank still flows
+     through the result links to the underlying threads. #}
+  {% include '@plugin_forum_plugin/public/_seo_head.twig' with {
+    canonical:      _search_url,
+    robots:         'noindex,follow',
+    og_title:       'Search the forum',
+    og_description: 'Find threads, posts and members across the FL350 forum.'
+  } only %}
+{% endblock %}
+
+{% block head_extra %}
+  <link rel="stylesheet" href="{{ forum_asset('css/forum.css') }}" />
+{% endblock %}
+
+{% block body %}
+  <main class="forum-page" id="content">
+
+    <header class="forum-hero forum-hero--narrow">
+      <div class="forum-shell">
+        <nav class="forum-crumbs">
+          <a href="/forum">Forum</a>
+          <span aria-hidden="true">/</span>
+          <span>Search</span>
+        </nav>
+        <h1>Search the forum</h1>
+
+        <form class="forum-search-form" method="get" action="/forum/search" role="search">
+          <div class="forum-search-input">
+            <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+            <input type="search" name="q" value="{{ forum_query|e('html_attr') }}" placeholder="Search threads and posts…" autofocus />
+          </div>
+          <select name="forum_id" class="forum-search-select">
+            <option value="0">All forums</option>
+            {% for f in forum_forums %}
+              <option value="{{ f.id }}" {{ forum_query_forum == f.id ? 'selected' : '' }}>{{ f.name|e }}</option>
+            {% endfor %}
+          </select>
+          <button type="submit" class="forum-btn forum-btn--primary">Search</button>
+        </form>
+      </div>
+    </header>
+
+    <div class="forum-shell forum-shell--wide forum-layout">
+      <div class="forum-main">
+
+        {% include '@plugin_forum_plugin/partials/_flash.twig' ignore missing %}
+
+        {% if forum_query == '' %}
+          <section class="forum-card forum-card--empty">
+            <h2>Type something to start</h2>
+            <p>Searches across thread titles and post bodies.</p>
+          </section>
+        {% elseif forum_query|length < 2 %}
+          <section class="forum-card forum-card--empty">
+            <h2>Keep going</h2>
+            <p>Type at least 2 characters.</p>
+          </section>
+        {% elseif forum_total == 0 %}
+          <section class="forum-card forum-card--empty">
+            <h2>No matches</h2>
+            <p>Nothing matched <strong>"{{ forum_query|e }}"</strong>. Try a different keyword or a less specific phrase.</p>
+          </section>
+        {% else %}
+          <p class="forum-search-summary">
+            <strong>{{ forum_total|number_format }}</strong> result{{ forum_total == 1 ? '' : 's' }}
+            for <strong>"{{ forum_query|e }}"</strong>
+          </p>
+
+          <ol class="forum-search-results">
+            {% for r in forum_results %}
+              {% set _author = r.author_user_id ? forum_users_by_id[r.author_user_id]|default(null) : null %}
+              <li class="forum-search-item">
+                <a class="forum-search-title" href="/forum/{{ r.forum_slug|e('html_attr') }}/{{ r.slug|e('html_attr') }}">{{ r.title|e }}</a>
+                <p class="forum-search-meta">
+                  <span class="forum-search-badge forum-search-badge--{{ r.match_field }}">
+                    {{ r.match_field == 'title' ? 'Title match' : 'Body match' }}
+                  </span>
+                  <span>in <a href="/forum/{{ r.forum_slug|e('html_attr') }}"><strong>{{ r.forum_name|e }}</strong></a></span>
+                  {% if _author %}
+                    <span class="forum-dot" aria-hidden="true">·</span>
+                    <span>by <a href="/forum/user/{{ _author.id }}"><strong>{{ _author.display_name|e }}</strong></a></span>
+                  {% endif %}
+                  <span class="forum-dot" aria-hidden="true">·</span>
+                  <span>{{ forum_relative_time(r.last_post_at ?? r.created_at) }}</span>
+                  <span class="forum-dot" aria-hidden="true">·</span>
+                  <span><i class="fa-regular fa-comment" aria-hidden="true"></i> {{ r.replies_count|number_format }}</span>
+                </p>
+                {% if r.snippet %}
+                  <p class="forum-search-snippet">{{ r.snippet|e }}</p>
+                {% endif %}
+              </li>
+            {% endfor %}
+          </ol>
+
+          {% if forum_total_pages > 1 %}
+            <nav class="forum-pager" aria-label="Pagination">
+              {% set _qs = '&q=' ~ forum_query|url_encode ~ (forum_query_forum > 0 ? '&forum_id=' ~ forum_query_forum : '') %}
+              {% if forum_page > 1 %}
+                <a class="forum-pager-btn" href="?page={{ forum_page - 1 }}{{ _qs }}">‹ Prev</a>
+              {% endif %}
+              {% for p in 1..forum_total_pages %}
+                {% if p == forum_page %}
+                  <span class="forum-pager-btn is-current">{{ p }}</span>
+                {% else %}
+                  <a class="forum-pager-btn" href="?page={{ p }}{{ _qs }}">{{ p }}</a>
+                {% endif %}
+              {% endfor %}
+              {% if forum_page < forum_total_pages %}
+                <a class="forum-pager-btn" href="?page={{ forum_page + 1 }}{{ _qs }}">Next ›</a>
+              {% endif %}
+            </nav>
+          {% endif %}
+        {% endif %}
+      </div>
+
+      {% include '@plugin_forum_plugin/widgets/sidebar.twig' %}
+    </div>
+  </main>
+{% endblock %}

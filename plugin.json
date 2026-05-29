@@ -1,0 +1,24 @@
+{
+  "name": "Forum",
+  "slug": "forum-plugin",
+  "version": "1.0.9",
+  "author": "Studio CMS",
+  "description": "Full community forum for Struxa CMS: categories, forums, threads and replies with Markdown, likes, subscriptions, tags, search and member profiles. Includes sticky and locked threads, online-now stats, rate limiting, reporting, and an admin moderation panel. Threads sync to a CMS content type for SEO metadata, slugs and featured images. Ships with a homepage latest-discussions widget.",
+  "requires_cms_version": "1.0.0",
+  "requires_php": "8.1",
+  "homepage": "https://github.com/struxa/struxa-forum",
+  "repository_url": "https://github.com/struxa/struxa-forum",
+  "license": "MIT",
+  "support_url": "https://github.com/struxa/struxa-forum/issues",
+  "category": "community",
+  "tags": ["forum", "community", "discussion", "threads", "markdown", "moderation"],
+  "tested_up_to": "1.0.0",
+  "main_class": "ForumPlugin\\ForumServiceProvider",
+  "enabled_by_default": false,
+  "nested_admin_nav": true,
+  "autoload": {
+    "psr4": {
+      "ForumPlugin\\": "src/"
+    }
+  }
+}

@@ -1,0 +1,1733 @@
+/* ============================================================
+   Forum admin dashboard — KPI tiles, activity chart, lists.
+   Scoped under .forum-admin-* so it can't bleed into other
+   admin pages.
+
+   Previously appended to public/css/admin.css (core); moved here
+   so Struxa CMS self-updates don't clobber it. Linked from
+   plugins/forum-plugin/views/admin/dashboard.twig via forum_asset().
+   ============================================================ */
+
+.forum-admin-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.forum-admin-kpi {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.1rem 1.2rem;
+  border-radius: var(--admin-radius);
+  background: var(--admin-card);
+  border: 1px solid var(--admin-border);
+  overflow: hidden;
+  transition: transform 180ms var(--admin-ease), border-color 180ms var(--admin-ease),
+              box-shadow 180ms var(--admin-ease);
+}
+.forum-admin-kpi::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, currentColor, transparent);
+  opacity: 0.5;
+}
+.forum-admin-kpi:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 16px 40px -16px rgba(0, 0, 0, 0.6);
+}
+
+.forum-admin-kpi-icon {
+  position: relative;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  font-size: 1.15rem;
+  flex-shrink: 0;
+  background: currentColor;
+  color: var(--admin-blue);
+}
+.forum-admin-kpi-icon i {
+  color: #fff;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.4));
+}
+
+.forum-admin-kpi--members .forum-admin-kpi-icon {
+  background: linear-gradient(135deg, #3b82f6, #6366f1);
+  color: #3b82f6;
+}
+.forum-admin-kpi--threads .forum-admin-kpi-icon {
+  background: linear-gradient(135deg, #a855f7, #ec4899);
+  color: #a855f7;
+}
+.forum-admin-kpi--posts .forum-admin-kpi-icon {
+  background: linear-gradient(135deg, #2dd4bf, #0ea5e9);
+  color: #2dd4bf;
+}
+.forum-admin-kpi--online .forum-admin-kpi-icon {
+  background: linear-gradient(135deg, #f59e0b, #ef4444);
+  color: #f59e0b;
+}
+
+.forum-admin-online-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25);
+  animation: forum-admin-pulse 1.6s ease-in-out infinite;
+}
+@keyframes forum-admin-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.2); }
+  50%      { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.05); }
+}
+
+.forum-admin-kpi-body { min-width: 0; flex: 1; }
+.forum-admin-kpi-label {
+  margin: 0;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--admin-dim);
+}
+.forum-admin-kpi-value {
+  margin: 0.2rem 0 0.15rem;
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  color: var(--admin-text);
+  font-variant-numeric: tabular-nums;
+}
+.forum-admin-kpi-hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--admin-muted);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.forum-admin-kpi-hint strong { color: var(--admin-text); font-weight: 600; }
+.forum-admin-kpi-dim { color: var(--admin-dim); }
+
+.forum-admin-kpi-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-weight: 800;
+  font-size: 0.72rem;
+}
+.forum-admin-kpi-delta--up   { color: #22c55e; }
+.forum-admin-kpi-delta--down { color: #f87171; }
+.forum-admin-kpi-delta--flat { color: var(--admin-dim); }
+
+/* —— Quickbar + reports queue tile —— */
+.forum-admin-quickbar {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 1rem;
+  align-items: stretch;
+}
+@media (max-width: 720px) {
+  .forum-admin-quickbar { grid-template-columns: 1fr; }
+}
+
+.forum-admin-quickbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.7rem 0.9rem;
+  background: var(--admin-card);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius);
+}
+
+.forum-admin-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--admin-border);
+  color: var(--admin-text);
+  font-size: 0.81rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 140ms var(--admin-ease), border-color 140ms var(--admin-ease),
+              color 140ms var(--admin-ease), transform 140ms var(--admin-ease);
+}
+.forum-admin-chip i {
+  color: var(--admin-muted);
+  transition: color 140ms var(--admin-ease);
+}
+.forum-admin-chip:hover {
+  background: var(--admin-purple-soft);
+  border-color: rgba(168, 85, 247, 0.45);
+  color: #f0abfc;
+  transform: translateY(-1px);
+}
+.forum-admin-chip:hover i { color: #f0abfc; }
+
+.forum-admin-queue {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.85rem 1.05rem;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(168, 85, 247, 0.1));
+  border: 1px solid rgba(168, 85, 247, 0.25);
+  border-radius: var(--admin-radius);
+  color: var(--admin-text);
+  text-decoration: none;
+  min-width: 240px;
+  transition: transform 140ms var(--admin-ease), border-color 140ms var(--admin-ease),
+              box-shadow 140ms var(--admin-ease);
+}
+.forum-admin-queue:hover {
+  transform: translateY(-2px);
+  border-color: rgba(168, 85, 247, 0.5);
+  box-shadow: 0 14px 36px -16px rgba(168, 85, 247, 0.45);
+}
+.forum-admin-queue--alert {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.18), rgba(245, 158, 11, 0.14));
+  border-color: rgba(248, 113, 113, 0.35);
+}
+.forum-admin-queue--alert:hover {
+  border-color: rgba(248, 113, 113, 0.55);
+  box-shadow: 0 14px 36px -16px rgba(248, 113, 113, 0.55);
+}
+.forum-admin-queue-icon {
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fbbf24;
+  flex-shrink: 0;
+}
+.forum-admin-queue--alert .forum-admin-queue-icon {
+  background: rgba(248, 113, 113, 0.18);
+  color: #fca5a5;
+}
+.forum-admin-queue-text { display: flex; flex-direction: column; line-height: 1.2; }
+.forum-admin-queue-label {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--admin-dim);
+}
+.forum-admin-queue-count {
+  font-size: 1rem;
+  color: var(--admin-text);
+  font-weight: 700;
+}
+.forum-admin-queue-count strong {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--admin-text);
+  margin-right: 0.2rem;
+}
+.forum-admin-queue-sub { color: var(--admin-muted); font-weight: 500; font-size: 0.78rem; }
+.forum-admin-queue-cta {
+  margin-left: auto;
+  font-size: 1.1rem;
+  color: var(--admin-muted);
+  transition: transform 140ms var(--admin-ease);
+}
+.forum-admin-queue:hover .forum-admin-queue-cta { transform: translateX(2px); color: var(--admin-text); }
+
+/* —— Panels (reused card style for content) —— */
+.forum-admin-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 1.2rem 1.25rem 1.25rem;
+}
+.forum-admin-panel:hover {
+  transform: none;
+  background: var(--admin-card);
+}
+.forum-admin-panel--accent {
+  background:
+    radial-gradient(120% 90% at 100% 0%, rgba(168, 85, 247, 0.16), transparent 60%),
+    var(--admin-card);
+  border-color: rgba(168, 85, 247, 0.25);
+}
+
+.forum-admin-panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.forum-admin-panel-head--tight { margin-bottom: 0.25rem; }
+
+.forum-admin-panel-kicker {
+  margin: 0;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--admin-dim);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.forum-admin-panel-title {
+  margin: 0.25rem 0 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--admin-text);
+}
+
+.forum-admin-flame {
+  display: inline-block;
+  animation: forum-admin-flicker 2.4s ease-in-out infinite;
+}
+@keyframes forum-admin-flicker {
+  0%, 100% { transform: rotate(-2deg) scale(1); }
+  50%      { transform: rotate(2deg) scale(1.12); }
+}
+
+.forum-admin-panel-summary {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.forum-admin-panel-summary > div {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+.forum-admin-summary-num {
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--admin-text);
+  font-variant-numeric: tabular-nums;
+}
+.forum-admin-summary-num--dim { color: var(--admin-muted); }
+.forum-admin-summary-lbl {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--admin-dim);
+}
+.forum-admin-summary-delta {
+  padding: 0.3rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.forum-admin-summary-delta--up   { color: #4ade80; background: rgba(34, 197, 94, 0.15); }
+.forum-admin-summary-delta--down { color: #fca5a5; background: rgba(248, 113, 113, 0.15); }
+.forum-admin-summary-delta--flat { color: var(--admin-dim); background: rgba(255, 255, 255, 0.05); }
+
+/* —— Activity chart (pure CSS bar chart) —— */
+.forum-admin-chart {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(28px, 1fr));
+  gap: 0.4rem;
+  align-items: end;
+  height: 160px;
+  padding: 0.5rem 0 0;
+  border-top: 1px dashed var(--admin-border);
+}
+.forum-admin-chart-col {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.35rem;
+  height: 100%;
+}
+.forum-admin-chart-bar {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  min-height: 4px;
+}
+.forum-admin-chart-bar::after {
+  content: "";
+  width: 100%;
+  height: var(--bar-height, 0%);
+  min-height: 4px;
+  border-radius: 6px 6px 0 0;
+  background: linear-gradient(180deg, #a855f7, #6366f1);
+  transition: height 240ms var(--admin-ease), filter 140ms var(--admin-ease);
+}
+.forum-admin-chart-col.is-today .forum-admin-chart-bar::after {
+  background: linear-gradient(180deg, #f59e0b, #ef4444);
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.35);
+}
+.forum-admin-chart-col:hover .forum-admin-chart-bar::after {
+  filter: brightness(1.2);
+}
+.forum-admin-chart-val {
+  position: absolute;
+  top: -1.1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: var(--admin-muted);
+  font-variant-numeric: tabular-nums;
+  opacity: 0;
+  transition: opacity 140ms var(--admin-ease);
+}
+.forum-admin-chart-col:hover .forum-admin-chart-val { opacity: 1; }
+.forum-admin-chart-day {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-align: center;
+  color: var(--admin-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.forum-admin-chart-col.is-today .forum-admin-chart-day { color: #fbbf24; }
+
+/* —— Grid layouts —— */
+.forum-admin-grid {
+  display: grid;
+  gap: 1rem;
+}
+.forum-admin-grid--3 { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+.forum-admin-grid--2 { grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); }
+
+/* —— Hot list —— */
+.forum-admin-hotlist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.forum-admin-hotitem {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.6rem;
+  align-items: center;
+  padding: 0.55rem 0.7rem 0.55rem 0.9rem;
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.025);
+  overflow: hidden;
+}
+.forum-admin-hotitem::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+}
+.forum-admin-hotitem--warm::before { background: linear-gradient(180deg, #fbbf24, #f59e0b); }
+.forum-admin-hotitem--hot::before  { background: linear-gradient(180deg, #f97316, #ef4444); }
+.forum-admin-hotitem--lava::before { background: linear-gradient(180deg, #ef4444, #d946ef); }
+
+.forum-admin-hotrank {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--admin-dim);
+  width: 1.1rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.forum-admin-hotitem--hot  .forum-admin-hotrank { color: #f97316; }
+.forum-admin-hotitem--lava .forum-admin-hotrank { color: #f87171; }
+
+.forum-admin-hotlink {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  color: var(--admin-text);
+  text-decoration: none;
+}
+.forum-admin-hotlink:hover .forum-admin-hottitle { color: #a5b4fc; }
+.forum-admin-hottitle {
+  font-size: 0.85rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.forum-admin-hotmeta {
+  font-size: 0.72rem;
+  color: var(--admin-muted);
+  display: flex;
+  gap: 0.3rem;
+}
+.forum-admin-hotsep { color: var(--admin-dim); }
+
+.forum-admin-hotstats {
+  display: flex;
+  gap: 0.3rem;
+  align-items: center;
+}
+.forum-admin-hotstat {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.18rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  background: rgba(249, 115, 22, 0.15);
+  color: #fdba74;
+}
+.forum-admin-hotstat--likes {
+  background: rgba(244, 63, 94, 0.14);
+  color: #fda4af;
+}
+.forum-admin-hotstat--new {
+  background: rgba(34, 197, 94, 0.16);
+  color: #86efac;
+  letter-spacing: 0.06em;
+  font-size: 0.65rem;
+}
+
+/* —— Top contributors list —— */
+.forum-admin-toplist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.forum-admin-toprow {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--admin-border);
+}
+.forum-admin-topbadge {
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--admin-muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+.forum-admin-toprow:nth-child(1) .forum-admin-topbadge {
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  color: #1a0f00;
+}
+.forum-admin-toprow:nth-child(2) .forum-admin-topbadge {
+  background: linear-gradient(135deg, #cbd5e1, #94a3b8);
+  color: #0f172a;
+}
+.forum-admin-toprow:nth-child(3) .forum-admin-topbadge {
+  background: linear-gradient(135deg, #f59e0b, #b45309);
+  color: #1a0f00;
+}
+.forum-admin-topavatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+}
+.forum-admin-topinfo { min-width: 0; }
+.forum-admin-topname {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--admin-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.forum-admin-toprank {
+  margin: 0.1rem 0 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.forum-admin-topcount {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.forum-admin-topcount strong {
+  display: block;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--admin-text);
+  line-height: 1;
+}
+.forum-admin-topcount span {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--admin-dim);
+}
+
+/* —— Welcome + tip card —— */
+.forum-admin-welcome {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.85rem;
+  border-radius: 12px;
+  background: rgba(168, 85, 247, 0.12);
+  border: 1px solid rgba(168, 85, 247, 0.25);
+}
+.forum-admin-welcome-avatar {
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #a855f7, #6366f1);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+.forum-admin-welcome-name {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--admin-text);
+}
+.forum-admin-welcome-when {
+  margin: 0.1rem 0 0;
+  font-size: 0.75rem;
+  color: var(--admin-muted);
+}
+
+.forum-admin-tip {
+  margin-top: 0.6rem;
+  padding: 0.85rem;
+  border-radius: 12px;
+  background: rgba(45, 212, 191, 0.08);
+  border: 1px solid rgba(45, 212, 191, 0.2);
+}
+.forum-admin-tip-head {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #5eead4;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.forum-admin-tip-body {
+  margin: 0.35rem 0 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--admin-muted);
+}
+.forum-admin-tip-body strong { color: var(--admin-text); font-weight: 700; }
+
+/* —— Feed (recent threads + recent posts) —— */
+.forum-admin-feed {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+.forum-admin-feeditem {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.7rem;
+  align-items: flex-start;
+  padding: 0.6rem 0.75rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--admin-border);
+  transition: background 140ms var(--admin-ease), border-color 140ms var(--admin-ease);
+}
+.forum-admin-feeditem:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+.forum-admin-feedavatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  flex-shrink: 0;
+}
+.forum-admin-feedavatar--ghost {
+  display: grid;
+  place-items: center;
+  color: var(--admin-dim);
+  font-weight: 800;
+}
+.forum-admin-feedmain { min-width: 0; }
+.forum-admin-feedtitle {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--admin-text);
+  line-height: 1.3;
+}
+.forum-admin-feedtitle em {
+  font-style: normal;
+  color: var(--admin-muted);
+  font-weight: 600;
+}
+.forum-admin-feedon {
+  font-weight: 400;
+  color: var(--admin-dim);
+  margin: 0 0.15rem;
+}
+.forum-admin-feedmeta {
+  margin: 0.25rem 0 0;
+  font-size: 0.76rem;
+  color: var(--admin-muted);
+  line-height: 1.5;
+}
+.forum-admin-feedmeta strong { color: var(--admin-text); font-weight: 600; }
+.forum-admin-feedforum {
+  color: #c4b5fd;
+  font-weight: 600;
+}
+.forum-admin-feedfoot {
+  margin: 0.4rem 0 0;
+  font-size: 0.72rem;
+  color: #fda4af;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.forum-admin-feedwhen {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--admin-dim);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.forum-admin-tag {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+}
+.forum-admin-tag--sticky {
+  background: rgba(251, 191, 36, 0.18);
+  color: #fcd34d;
+}
+.forum-admin-tag--locked {
+  background: rgba(248, 113, 113, 0.18);
+  color: #fca5a5;
+}
+
+.admin-empty--inline {
+  padding: 1rem;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--admin-muted);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px dashed var(--admin-border);
+  border-radius: 10px;
+}
+
+/* ============================================================
+   /admin/forum/posts — moderation list.
+   Card-style rows with the post excerpt, thread crumb, author
+   chip and inline restore/delete actions. Filter rail above
+   uses the same form vocabulary as the threads page.
+   ============================================================ */
+
+.forum-admin-postbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 12px 14px;
+  padding: 1rem 1.1rem;
+  border-radius: var(--admin-radius);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0));
+  border: 1px solid var(--admin-border);
+}
+.forum-admin-postbar > * { flex: 1 1 160px; min-width: 0; }
+.forum-admin-postbar-search { flex: 2 1 280px; }
+.forum-admin-postbar-actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+.forum-admin-postbar .admin-label {
+  font-size: 11px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--admin-dim);
+  margin-bottom: 4px;
+}
+
+/* Status pills — quick-jump tabs to swap the `status` filter
+   without re-touching the dropdown. Highlights the active one. */
+.forum-admin-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 14px 0 0;
+}
+.forum-admin-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: .01em;
+  color: var(--admin-text);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--admin-border);
+  text-decoration: none;
+  transition: background 140ms var(--admin-ease), border-color 140ms var(--admin-ease),
+              color 140ms var(--admin-ease);
+}
+.forum-admin-tab i { color: var(--admin-dim); }
+.forum-admin-tab:hover { background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.18); }
+.forum-admin-tab--active {
+  background: rgba(99, 102, 241, 0.18);
+  border-color: rgba(99, 102, 241, 0.45);
+  color: #c7d2fe;
+}
+.forum-admin-tab--active i { color: #a5b4fc; }
+.forum-admin-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  padding: 0 6px;
+  height: 18px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--admin-text);
+}
+
+/* Cards */
+.forum-admin-postlist {
+  display: grid;
+  gap: 12px;
+  margin: 18px 0 0;
+}
+
+.forum-admin-postbulk {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 18px;
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border-radius: var(--admin-radius);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--admin-border);
+}
+.forum-admin-postbulk-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--admin-text);
+  user-select: none;
+}
+.forum-admin-postbulk-all input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  cursor: pointer;
+  accent-color: #6366f1;
+}
+.forum-admin-postbulk-submit i { margin-right: 6px; }
+
+/* Posts moderation list: checkbox column (threads/reports keep 3-column grid). */
+.forum-admin-postlist--posts-moderation > .forum-admin-postcard {
+  grid-template-columns: auto 56px minmax(0, 1fr) auto;
+}
+.forum-admin-postcard-select {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 6px;
+  min-width: 28px;
+}
+.forum-admin-postcard-select .forum-post-bulk-cb {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  cursor: pointer;
+  accent-color: #6366f1;
+}
+
+.forum-admin-postcard {
+  position: relative;
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: var(--admin-radius);
+  background: var(--admin-card);
+  border: 1px solid var(--admin-border);
+  transition: border-color 160ms var(--admin-ease), box-shadow 160ms var(--admin-ease);
+}
+.forum-admin-postcard:hover {
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow: 0 12px 32px -18px rgba(0, 0, 0, 0.6);
+}
+.forum-admin-postcard--deleted {
+  background: rgba(239, 68, 68, 0.04);
+  border-color: rgba(239, 68, 68, 0.28);
+}
+.forum-admin-postcard--deleted::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--admin-radius);
+  background: repeating-linear-gradient(
+    -45deg,
+    transparent 0 16px,
+    rgba(239, 68, 68, 0.04) 16px 17px
+  );
+  pointer-events: none;
+}
+.forum-admin-postcard--op { border-left: 3px solid rgba(245, 158, 11, 0.55); }
+
+/* Avatar column */
+.forum-admin-postcard-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #fff;
+  font-weight: 800;
+  font-size: 18px;
+  display: grid;
+  place-items: center;
+  align-self: start;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px -4px rgba(99, 102, 241, 0.5);
+  overflow: hidden;
+}
+.forum-admin-postcard-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+/* Body column */
+.forum-admin-postcard-body { min-width: 0; }
+.forum-admin-postcard-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  margin-bottom: 6px;
+}
+.forum-admin-postcard-author {
+  font-weight: 700;
+  font-size: 14.5px;
+  color: var(--admin-text);
+}
+.forum-admin-postcard-author--unknown {
+  color: var(--admin-dim);
+  font-style: italic;
+  font-weight: 600;
+}
+.forum-admin-postcard-meta {
+  font-size: 12px;
+  color: var(--admin-dim);
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.forum-admin-postcard-meta a { color: var(--admin-blue); text-decoration: none; }
+.forum-admin-postcard-meta a:hover { text-decoration: underline; }
+.forum-admin-postcard-dot { opacity: 0.5; }
+
+/* Mini badges (OP / DELETED / replies / etc.) */
+.forum-admin-postcard-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  color: var(--admin-text);
+  white-space: nowrap;
+}
+.forum-admin-postcard-badge--op {
+  background: rgba(245, 158, 11, 0.16);
+  border-color: rgba(245, 158, 11, 0.35);
+  color: #fcd34d;
+}
+.forum-admin-postcard-badge--deleted {
+  background: rgba(239, 68, 68, 0.18);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+}
+.forum-admin-postcard-badge--likes {
+  background: rgba(244, 114, 182, 0.12);
+  border-color: rgba(244, 114, 182, 0.30);
+  color: #f9a8d4;
+}
+
+/* Body excerpt */
+.forum-admin-postcard-excerpt {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.78);
+  max-height: 6.2em;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  position: relative;
+  margin: 0;
+  white-space: normal;
+  word-break: break-word;
+}
+.forum-admin-postcard-excerpt p:first-child { margin-top: 0; }
+.forum-admin-postcard-excerpt p:last-child  { margin-bottom: 0; }
+.forum-admin-postcard-excerpt a { color: var(--admin-blue); }
+.forum-admin-postcard-excerpt code {
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 12px;
+}
+
+/* Action column */
+.forum-admin-postcard-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-self: start;
+  align-items: stretch;
+  min-width: 130px;
+}
+.forum-admin-postcard-actions form { display: contents; }
+.forum-admin-postcard-act {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--admin-border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--admin-text);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 140ms var(--admin-ease), border-color 140ms var(--admin-ease), color 140ms var(--admin-ease);
+}
+.forum-admin-postcard-act:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+.forum-admin-postcard-act--danger {
+  color: #fca5a5;
+  border-color: rgba(239, 68, 68, 0.30);
+  background: rgba(239, 68, 68, 0.06);
+}
+.forum-admin-postcard-act--danger:hover {
+  color: #fff;
+  background: rgba(239, 68, 68, 0.30);
+  border-color: rgba(239, 68, 68, 0.55);
+}
+.forum-admin-postcard-act--success {
+  color: #6ee7b7;
+  border-color: rgba(16, 185, 129, 0.32);
+  background: rgba(16, 185, 129, 0.06);
+}
+.forum-admin-postcard-act--success:hover {
+  color: #fff;
+  background: rgba(16, 185, 129, 0.30);
+  border-color: rgba(16, 185, 129, 0.55);
+}
+
+/* Pagination strip */
+.forum-admin-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 18px 0 0;
+  padding: 12px 14px;
+  border-radius: var(--admin-radius);
+  border: 1px solid var(--admin-border);
+  background: rgba(255, 255, 255, 0.02);
+  font-size: 12.5px;
+  color: var(--admin-dim);
+}
+.forum-admin-pager-nav { display: inline-flex; gap: 6px; }
+.forum-admin-pager-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--admin-border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--admin-text);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 12.5px;
+}
+.forum-admin-pager-link[aria-disabled="true"] {
+  opacity: 0.4;
+  pointer-events: none;
+}
+.forum-admin-pager-link:hover { background: rgba(255, 255, 255, 0.08); }
+
+/* Empty state */
+.forum-admin-postempty {
+  text-align: center;
+  padding: 36px 16px;
+  border-radius: var(--admin-radius);
+  border: 1px dashed var(--admin-border);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--admin-dim);
+}
+.forum-admin-postempty i {
+  font-size: 28px;
+  color: rgba(255, 255, 255, 0.25);
+  margin-bottom: 8px;
+  display: block;
+}
+
+@media (max-width: 720px) {
+  .forum-admin-postcard {
+    grid-template-columns: 44px minmax(0, 1fr);
+  }
+  .forum-admin-postlist--posts-moderation > .forum-admin-postcard {
+    grid-template-columns: auto 44px minmax(0, 1fr);
+  }
+  .forum-admin-postcard-actions {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+  .forum-admin-postcard-act { flex: 1 1 110px; }
+}
+
+/* ============================================================
+   /admin/forum/threads — moderation list.
+   Re-uses the .forum-admin-postcard chassis (avatar / body / actions)
+   and layers thread-specific bits on top: bigger title, sticky/locked
+   accent stripes, inline move-forum picker, sticky/lock toggle buttons.
+   ============================================================ */
+
+.forum-admin-threadcard-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--admin-text);
+  text-decoration: none;
+  line-height: 1.3;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: color 140ms var(--admin-ease);
+}
+.forum-admin-threadcard-title:hover { color: var(--admin-blue); }
+.forum-admin-threadcard-title-icon {
+  font-size: 11px;
+  opacity: 0;
+  transition: opacity 140ms var(--admin-ease);
+  color: var(--admin-blue);
+}
+.forum-admin-threadcard-title:hover .forum-admin-threadcard-title-icon { opacity: 1; }
+
+/* Sticky / locked accent stripes — mirror the OP stripe on .forum-admin-postcard--op
+   but coloured per-state. Only one is applied at a time in practice; if both apply
+   the sticky stripe wins (declared after the locked rule). */
+.forum-admin-threadcard--locked { border-left: 3px solid rgba(239, 68, 68, 0.55); }
+.forum-admin-threadcard--sticky { border-left: 3px solid rgba(245, 158, 11, 0.65); }
+
+/* Badge variants */
+.forum-admin-threadcard-badge--sticky {
+  background: rgba(245, 158, 11, 0.16);
+  border-color: rgba(245, 158, 11, 0.35);
+  color: #fcd34d;
+}
+.forum-admin-threadcard-badge--locked {
+  background: rgba(239, 68, 68, 0.16);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+}
+
+/* Stats row under the meta line */
+.forum-admin-threadcard-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.06);
+}
+.forum-admin-threadcard-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--admin-dim);
+  font-variant-numeric: tabular-nums;
+}
+.forum-admin-threadcard-stat strong {
+  color: var(--admin-text);
+  font-weight: 700;
+  font-size: 13px;
+}
+.forum-admin-threadcard-stat i {
+  color: var(--admin-dim);
+  font-size: 12px;
+}
+.forum-admin-threadcard-stat-label { opacity: 0.8; }
+
+/* Move-forum picker — compact inline select + button in one row.
+   Sits inside .forum-admin-postcard-actions which is already a column,
+   so this row stretches across that column. */
+.forum-admin-threadcard-move {
+  display: flex;
+  gap: 4px;
+  align-items: stretch;
+}
+.forum-admin-threadcard-move-select {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 5px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--admin-border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--admin-text);
+  font-size: 12px;
+  font-family: inherit;
+}
+.forum-admin-threadcard-move .forum-admin-postcard-act { flex: 0 0 auto; padding: 5px 10px; }
+
+/* Sticky + lock toggle row */
+.forum-admin-threadcard-toggles {
+  display: flex;
+  gap: 6px;
+}
+.forum-admin-threadcard-toggle {
+  flex: 1 1 50%;
+  padding: 6px 0;
+  min-width: 0;
+}
+.forum-admin-threadcard-toggle.is-active {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.20);
+}
+.forum-admin-threadcard-toggle--sticky.is-active {
+  color: #fcd34d;
+  background: rgba(245, 158, 11, 0.10);
+  border-color: rgba(245, 158, 11, 0.40);
+}
+.forum-admin-threadcard-toggle--sticky.is-active:hover {
+  color: #fde68a;
+  background: rgba(245, 158, 11, 0.20);
+  border-color: rgba(245, 158, 11, 0.60);
+}
+.forum-admin-threadcard-toggle--locked.is-active {
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.10);
+  border-color: rgba(239, 68, 68, 0.40);
+}
+.forum-admin-threadcard-toggle--locked.is-active:hover {
+  color: #fecaca;
+  background: rgba(239, 68, 68, 0.20);
+  border-color: rgba(239, 68, 68, 0.60);
+}
+
+@media (max-width: 720px) {
+  .forum-admin-threadcard-move,
+  .forum-admin-threadcard-toggles { grid-column: 1 / -1; }
+}
+
+/* ============================================================
+   Numbered pagination — used by both /admin/forum/posts and
+   /admin/forum/threads via views/admin/_pager.twig. Extends the
+   original .forum-admin-pager strip with numbered chips, the
+   current-page highlight, and an ellipsis between gaps.
+   ============================================================ */
+
+.forum-admin-pager-summary { color: var(--admin-dim); font-size: 12.5px; }
+.forum-admin-pager-summary strong { color: var(--admin-text); font-weight: 700; font-size: 13px; }
+
+.forum-admin-pager-nav {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.forum-admin-pager-link--num {
+  min-width: 32px;
+  padding: 5px 10px;
+  justify-content: center;
+  font-variant-numeric: tabular-nums;
+}
+.forum-admin-pager-link--current {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  background: rgba(99, 102, 241, 0.20);
+  border: 1px solid rgba(99, 102, 241, 0.50);
+  color: #c7d2fe;
+  font-weight: 700;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+.forum-admin-pager-ellipsis {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  padding: 0 4px;
+  color: var(--admin-dim);
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 1px;
+}
+.forum-admin-pager-link--step { gap: 4px; }
+.forum-admin-pager-link--step .forum-admin-pager-step-label { display: inline; }
+
+@media (max-width: 540px) {
+  .forum-admin-pager-link--step .forum-admin-pager-step-label { display: none; }
+  .forum-admin-pager-link--step { padding: 5px 10px; }
+}
+
+/* ============================================================
+   Post card — refined head + thread-context sub-row so the cards
+   on /admin/forum/posts feel as polished as /admin/forum/threads.
+   ============================================================ */
+
+/* New sub-row showing "<forum> › <thread title>" prominently
+   underneath the author line. Lives under the head row but above
+   the excerpt. Keeps the head row compact (just author + time + badges). */
+.forum-admin-postcard-crumb {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  margin: 4px 0 10px;
+  font-size: 12.5px;
+  color: var(--admin-dim);
+  line-height: 1.4;
+}
+.forum-admin-postcard-crumb-forum,
+.forum-admin-postcard-crumb-thread {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  text-decoration: none;
+  border-bottom: 1px dashed transparent;
+  transition: color 140ms var(--admin-ease), border-color 140ms var(--admin-ease);
+}
+.forum-admin-postcard-crumb-forum {
+  color: var(--admin-dim);
+  font-weight: 600;
+}
+.forum-admin-postcard-crumb-forum:hover {
+  color: var(--admin-text);
+  border-bottom-color: rgba(255, 255, 255, 0.18);
+}
+.forum-admin-postcard-crumb-thread {
+  color: var(--admin-blue);
+  font-weight: 600;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.forum-admin-postcard-crumb-thread:hover {
+  color: #93c5fd;
+  border-bottom-color: rgba(96, 165, 250, 0.40);
+}
+.forum-admin-postcard-crumb-sep {
+  opacity: 0.5;
+  font-size: 11px;
+}
+
+/* Slightly tighten the head row now that the thread crumb has its own home. */
+.forum-admin-postcard-head { margin-bottom: 0; }
+.forum-admin-postcard-meta { gap: 4px 6px; }
+
+/* ============================================================
+   Reports queue — `/admin/forum/reports`
+   Reuses the .forum-admin-postcard chassis but adds:
+   - left-edge status stripe (red/green/grey) so the queue scans
+   - reason badge + quoted note block
+   - resolution meta sub-block (who/when closed the report)
+   ============================================================ */
+
+/* Status stripe on the left edge — the postcard already has padding so we
+   layer this in via ::before like --deleted does, but we colour it per status
+   instead of declaring three different solid borders. */
+.forum-admin-postcard--report { position: relative; }
+.forum-admin-postcard--report::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  border-radius: 12px 0 0 12px;
+  background: rgba(220, 38, 38, 0.55); /* default: open */
+}
+.forum-admin-postcard--report-resolved::before { background: rgba(34, 197, 94, 0.55); }
+.forum-admin-postcard--report-dismissed::before { background: rgba(148, 163, 184, 0.45); }
+.forum-admin-postcard--report-open::before { background: rgba(220, 38, 38, 0.65); }
+
+/* Status pill rendered in the head row. Compact and high-contrast so it's
+   spottable at a glance while scrolling the queue. */
+.forum-admin-postcard-badge--status-open {
+  background: rgba(220, 38, 38, 0.18);
+  color: #fca5a5;
+}
+.forum-admin-postcard-badge--status-open i { color: #fca5a5; }
+.forum-admin-postcard-badge--status-resolved {
+  background: rgba(34, 197, 94, 0.18);
+  color: #86efac;
+}
+.forum-admin-postcard-badge--status-resolved i { color: #86efac; }
+.forum-admin-postcard-badge--status-dismissed {
+  background: rgba(148, 163, 184, 0.18);
+  color: #cbd5e1;
+}
+.forum-admin-postcard-badge--status-dismissed i { color: #cbd5e1; }
+
+/* "Reported by" pseudo-meta — same look as the time meta but with the
+   flag glyph instead of the clock, and the reporter name highlighted. */
+.forum-admin-postcard-reporter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--admin-dim);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+.forum-admin-postcard-reporter strong {
+  color: var(--admin-text);
+  font-weight: 600;
+}
+.forum-admin-postcard-reporter a {
+  color: var(--admin-blue);
+  text-decoration: none;
+  font-weight: 600;
+}
+.forum-admin-postcard-reporter a:hover { text-decoration: underline; }
+
+/* The reason. Compact pill + an optional note below in a quote-card. */
+.forum-admin-postcard-reason {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 8px 0 10px;
+}
+.forum-admin-postcard-reason-pill {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.16);
+  color: #fcd34d;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.forum-admin-postcard-reason-pill i { color: #fcd34d; font-size: 11px; }
+.forum-admin-postcard-reason-note {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(245, 158, 11, 0.08);
+  border-left: 3px solid rgba(245, 158, 11, 0.55);
+  color: var(--admin-text);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.forum-admin-postcard-reason-note i {
+  margin-right: 6px;
+  color: #fbbf24;
+  opacity: 0.8;
+}
+
+/* The reported post excerpt is shown in a slightly dimmer container so the
+   reporter's note (above) reads as the *primary* admin signal, not the post
+   body itself. */
+.forum-admin-postcard--report .forum-admin-postcard-excerpt {
+  margin-top: 6px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  color: var(--admin-muted);
+  font-size: 13px;
+  line-height: 1.55;
+  max-height: 7.5em;
+  overflow: hidden;
+  position: relative;
+}
+.forum-admin-postcard--report .forum-admin-postcard-excerpt::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 2.2em;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0) 0%, var(--admin-card, #0f172a) 100%);
+  pointer-events: none;
+}
+.forum-admin-postcard--report .forum-admin-postcard-excerpt-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--admin-dim);
+}
+.forum-admin-postcard--report .forum-admin-postcard-excerpt-label i { color: var(--admin-dim); }
+
+/* Resolution metadata — shown when status != open. Same vibe as the
+   reporter row but greener and aligned right with a check glyph. */
+.forum-admin-postcard-resolution {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(34, 197, 94, 0.06);
+  border: 1px solid rgba(34, 197, 94, 0.18);
+  font-size: 12.5px;
+  color: var(--admin-muted);
+  line-height: 1.5;
+}
+.forum-admin-postcard-resolution--dismissed {
+  background: rgba(148, 163, 184, 0.06);
+  border-color: rgba(148, 163, 184, 0.20);
+}
+.forum-admin-postcard-resolution i {
+  margin-top: 3px;
+  color: #86efac;
+}
+.forum-admin-postcard-resolution--dismissed i { color: #cbd5e1; }
+.forum-admin-postcard-resolution strong { color: var(--admin-text); font-weight: 600; }
+.forum-admin-postcard-resolution-note {
+  display: block;
+  margin-top: 4px;
+  color: var(--admin-text);
+  font-style: italic;
+}
+
+/* Action button colour tweaks for the reports queue. The "Resolve" green
+   already exists via --success. "Dismiss" gets a quieter slate look so it's
+   visually demoted vs. resolve. "Reopen" reuses the default neutral. */
+.forum-admin-postcard-act--dismiss {
+  background: rgba(148, 163, 184, 0.10);
+  border-color: rgba(148, 163, 184, 0.25);
+  color: #cbd5e1;
+}
+.forum-admin-postcard-act--dismiss:hover {
+  background: rgba(148, 163, 184, 0.18);
+  color: var(--admin-text);
+}
+
+/* KPI summary strip above the filter bar — 4 colour-coded tiles for open /
+   resolved / dismissed / total. Visually leads with the open count so the
+   moderator's first eye-stop is "how many tickets are waiting". */
+.forum-admin-report-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+.forum-admin-report-tile {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  text-decoration: none;
+  transition: background 140ms var(--admin-ease), border-color 140ms var(--admin-ease), transform 140ms var(--admin-ease);
+}
+.forum-admin-report-tile:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.12);
+  transform: translateY(-1px);
+}
+.forum-admin-report-tile--active {
+  background: rgba(99, 102, 241, 0.10);
+  border-color: rgba(99, 102, 241, 0.40);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.18) inset;
+}
+.forum-admin-report-tile-icon {
+  width: 38px; height: 38px;
+  flex: 0 0 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--admin-text);
+  font-size: 15px;
+}
+.forum-admin-report-tile--open .forum-admin-report-tile-icon {
+  background: rgba(220, 38, 38, 0.15);
+  color: #fca5a5;
+}
+.forum-admin-report-tile--resolved .forum-admin-report-tile-icon {
+  background: rgba(34, 197, 94, 0.15);
+  color: #86efac;
+}
+.forum-admin-report-tile--dismissed .forum-admin-report-tile-icon {
+  background: rgba(148, 163, 184, 0.15);
+  color: #cbd5e1;
+}
+.forum-admin-report-tile--all .forum-admin-report-tile-icon {
+  background: rgba(99, 102, 241, 0.15);
+  color: #a5b4fc;
+}
+.forum-admin-report-tile-body { min-width: 0; }
+.forum-admin-report-tile-label {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--admin-dim);
+  margin: 0;
+}
+.forum-admin-report-tile-value {
+  margin: 4px 0 0;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--admin-text);
+}
+
+/* Mobile tweak — the postcard actions sit under the body on narrow screens
+   so the reason + excerpt aren't compressed by the buttons column. */
+@media (max-width: 720px) {
+  .forum-admin-postcard--report .forum-admin-postcard-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    margin-top: 8px;
+  }
+}
+
+/* ============================================================
+   Forum admin — name column icon variants
+   The forums list shows either a FontAwesome glyph or an image
+   icon next to each forum name. Same vertical alignment + size
+   so the column stays neat regardless of which mode is in use.
+   ============================================================ */
+.forum-admin-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.forum-admin-icon-img {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  border-radius: 5px;
+  background: #fff;
+  box-shadow: 0 0 0 1px #e5e7eb;
+  padding: 2px;
+  display: inline-block;
+  flex: 0 0 22px;
+}
+
+/* Forum admin — icon editor (file upload + URL + preview) */
+.forum-admin-icon-editor {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 16px;
+  align-items: start;
+  padding: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+}
+.forum-admin-icon-editor-preview {
+  width: 96px;
+  height: 96px;
+  display: flex; align-items: center; justify-content: center;
+  background: #fff;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.forum-admin-icon-editor-preview img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.forum-admin-icon-editor-empty {
+  color: #94a3b8;
+  font-size: 32px;
+}
+.forum-admin-icon-editor-controls .admin-input[type="file"] {
+  padding: 8px 10px;
+}
+@media (max-width: 560px) {
+  .forum-admin-icon-editor { grid-template-columns: 1fr; }
+}

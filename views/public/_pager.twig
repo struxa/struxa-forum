@@ -1,0 +1,34 @@
+{# Numbered pager — forum listings, thread views, thread rows on index pages.
+   base_url      — path without ?page= (page 1)
+   page          — current page (>= 1)
+   total_pages   — total page count
+   window        — pages shown around current (default 2)
+   show_prev_next — show Prev/Next (default true)
+   compact       — smaller chips for per-thread rows on forum lists
+   show_latest   — append “Latest” link to last page when not already there
+#}
+{% set _cur = page|default(1) %}
+{% set _last = total_pages|default(1) %}
+{% set _qs = query_suffix|default('') %}
+{% if _last > 1 %}
+  <nav class="forum-pager{{ compact|default(false) ? ' forum-pager--compact' : '' }}" aria-label="{{ aria_label|default('Pagination') }}">
+    {% if show_prev_next|default(true) and _cur > 1 %}
+      <a class="forum-pager-btn" href="{{ forum_page_href(base_url, _cur - 1, _qs) }}">‹ Prev</a>
+    {% endif %}
+    {% for item in forum_pager_items(_cur, _last, window|default(2)) %}
+      {% if item.type == 'ellipsis' %}
+        <span class="forum-pager-ellipsis" aria-hidden="true">…</span>
+      {% elseif item.page == _cur %}
+        <span class="forum-pager-btn is-current" aria-current="page">{{ item.page }}</span>
+      {% else %}
+        <a class="forum-pager-btn" href="{{ forum_page_href(base_url, item.page, _qs) }}">{{ item.page }}</a>
+      {% endif %}
+    {% endfor %}
+    {% if show_prev_next|default(true) and _cur < _last %}
+      <a class="forum-pager-btn" href="{{ forum_page_href(base_url, _cur + 1, _qs) }}">Next ›</a>
+    {% endif %}
+    {% if show_latest|default(false) and _cur < _last %}
+      <a class="forum-pager-btn forum-pager-btn--latest" href="{{ forum_page_href(base_url, _last, _qs) }}" title="Jump to latest posts">Latest</a>
+    {% endif %}
+  </nav>
+{% endif %}

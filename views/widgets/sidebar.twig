@@ -1,0 +1,167 @@
+{# Sidebar shown on /forum index and forum view pages.
+   Renders (top → bottom):
+     - "You" card when logged in (avatar, username, rank, stats, progress)
+     - "Join the conversation" CTA when logged out
+     - Top contributors (from forum_user_activity)
+     - Popular tags (CMS taxonomy)
+
+   The "Top Avios cards" block intentionally lives OUTSIDE this partial —
+   the /forum index now renders it as a full-width horizontal strip
+   beneath the forum list (see widgets/credit-cards-strip.twig).
+
+   Required view data:
+     forum_sidebar   : { cards: [...] (unused here), top_posters: [{user, posts}], tags: [...], me: {...}|null }
+     forum_logged_in : bool (optional)
+#}
+{% set _sb = forum_sidebar|default({cards: [], top_posters: [], tags: [], me: null}) %}
+
+<aside class="forum-side" aria-label="Sidebar">
+
+  {% if _sb.me %}
+    {# ---- Logged-in "You" card ---------------------------------- #}
+    {% set _me        = _sb.me.user %}
+    {% set _meStats   = _sb.me.stats %}
+    {% set _meNext    = _sb.me.next_rank %}
+    {% set _meRank    = _me.rank %}
+    {% set _mePosts   = _me.posts|default(0) %}
+    {# Progress toward the next rank — clamps to 100 when at the top. #}
+    {% if _meNext %}
+      {% set _meBase    = _meRank.min_posts|default(0) %}
+      {% set _meCeil    = _meNext.min_posts %}
+      {% set _meSpan    = (_meCeil - _meBase) > 0 ? (_meCeil - _meBase) : 1 %}
+      {% set _meProgPct = ((_mePosts - _meBase) / _meSpan * 100)|round %}
+      {% if _meProgPct < 0  %}{% set _meProgPct = 0  %}{% endif %}
+      {% if _meProgPct > 100 %}{% set _meProgPct = 100 %}{% endif %}
+    {% else %}
+      {% set _meProgPct = 100 %}
+    {% endif %}
+
+    <section class="forum-side-card forum-side-me" style="--me-accent: {{ _meRank.colour|default('#1557e8')|e('html_attr') }};">
+      <div class="forum-side-me-top">
+        <a class="forum-side-me-avatar" href="/forum/user/{{ _me.id }}" aria-label="View your profile">
+          <img src="{{ _me.avatar|e('html_attr') }}" alt="" width="56" height="56" loading="lazy" />
+          <span class="forum-side-me-online" aria-hidden="true"></span>
+        </a>
+        <div class="forum-side-me-id">
+          <p class="forum-side-me-hello">Signed in as</p>
+          <p class="forum-side-me-name">
+            <a href="/forum/user/{{ _me.id }}">{{ _me.display_name|e }}</a>
+          </p>
+          <p class="forum-side-me-rank">
+            <i class="fa-solid fa-medal" aria-hidden="true"></i>
+            <span>{{ _meRank.label|e }}</span>
+          </p>
+        </div>
+      </div>
+
+      <ul class="forum-side-me-stats">
+        <li>
+          <strong>{{ _mePosts|number_format }}</strong>
+          <span>Posts</span>
+        </li>
+        <li>
+          <strong>{{ _meStats.threads_started|default(0)|number_format }}</strong>
+          <span>Topics</span>
+        </li>
+        <li>
+          <strong>{{ _meStats.likes_received|default(0)|number_format }}</strong>
+          <span>Likes</span>
+        </li>
+      </ul>
+
+      {% if _meNext %}
+        <div class="forum-side-me-progress" aria-label="Progress to next rank">
+          <div class="forum-side-me-progress-bar">
+            <span style="width: {{ _meProgPct }}%;"></span>
+          </div>
+          <p class="forum-side-me-progress-text">
+            <strong>{{ (_meNext.min_posts - _mePosts)|number_format }}</strong>
+            more post{{ (_meNext.min_posts - _mePosts) == 1 ? '' : 's' }} to
+            <span style="color: {{ _meNext.colour|e('html_attr') }};">{{ _meNext.label|e }}</span>
+          </p>
+        </div>
+      {% else %}
+        <p class="forum-side-me-progress-text forum-side-me-progress-text--max">
+          <i class="fa-solid fa-crown" aria-hidden="true"></i>
+          Top rank achieved — thanks for the chatter!
+        </p>
+      {% endif %}
+
+      <div class="forum-side-me-actions">
+        <a class="forum-btn forum-btn--small forum-btn--quiet" href="/forum/user/{{ _me.id }}">
+          <i class="fa-solid fa-user" aria-hidden="true"></i> My profile
+        </a>
+        {% if _me.joined_at %}
+          <span class="forum-side-me-since">
+            Joined {{ forum_relative_time(_me.joined_at) }}
+          </span>
+        {% endif %}
+      </div>
+    </section>
+  {% elseif not forum_logged_in|default(false) %}
+    <section class="forum-side-card forum-side-cta">
+      <h3>Join the conversation</h3>
+      <p>Sign up to post replies, like threads and follow the topics you care about.</p>
+      <div class="forum-side-cta-actions">
+        <a class="forum-btn forum-btn--primary forum-btn--small" href="/register">Create account</a>
+        <a class="forum-btn forum-btn--small forum-btn--quiet" href="{{ url_for('login') }}">Sign in</a>
+      </div>
+    </section>
+  {% endif %}
+
+  {% if _sb.top_posters|length > 0 %}
+    <section class="forum-side-card">
+      <header class="forum-side-head">
+        <h3><i class="fa-solid fa-trophy" aria-hidden="true"></i> Top contributors</h3>
+      </header>
+      <ol class="forum-top-posters">
+        {% for row in _sb.top_posters %}
+          {% set _r = forum_user_rank(row.posts) %}
+          {% set _uid = row.user.id|default(0) %}
+          <li>
+            {% if _uid > 0 %}
+              <a class="forum-top-avatar-link" href="/forum/user/{{ _uid }}" aria-label="View profile of {{ row.user.display_name|e('html_attr') }}">
+                <img class="forum-top-avatar" src="{{ row.user.avatar|e('html_attr') }}" alt="" loading="lazy" width="36" height="36" />
+              </a>
+            {% else %}
+              <img class="forum-top-avatar" src="{{ row.user.avatar|e('html_attr') }}" alt="" loading="lazy" width="36" height="36" />
+            {% endif %}
+            <div class="forum-top-info">
+              <p class="forum-top-name">
+                {% if _uid > 0 %}
+                  <a href="/forum/user/{{ _uid }}">{{ row.user.display_name|e }}</a>
+                {% else %}
+                  {{ row.user.display_name|e }}
+                {% endif %}
+              </p>
+              <p class="forum-top-rank" style="--rank-colour: {{ _r.colour|e('html_attr') }}">{{ _r.label|e }}</p>
+            </div>
+            <span class="forum-top-count">
+              <strong>{{ row.posts|number_format }}</strong>
+              <span>posts</span>
+            </span>
+          </li>
+        {% endfor %}
+      </ol>
+    </section>
+  {% endif %}
+
+  {% if _sb.tags|default([])|length > 0 %}
+    <section class="forum-side-card">
+      <header class="forum-side-head">
+        <h3><i class="fa-solid fa-hashtag" aria-hidden="true"></i> Popular tags</h3>
+      </header>
+      <div class="forum-tag-cloud">
+        {% for tag in _sb.tags %}
+          {# Tier the font size by usage so the cloud actually looks like one. #}
+          {% set _tier = tag.count >= 10 ? 'lg' : (tag.count >= 4 ? 'md' : 'sm') %}
+          <a class="forum-tag-chip forum-tag-chip--{{ _tier }}" href="/forum/tag/{{ tag.slug|e('html_attr') }}">
+            #{{ tag.name|e }}
+            <span class="forum-tag-chip-count">{{ tag.count }}</span>
+          </a>
+        {% endfor %}
+      </div>
+    </section>
+  {% endif %}
+
+</aside>
